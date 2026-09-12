@@ -4,56 +4,65 @@ import {
   TreeExpander, TreeIcon, TreeLabel, TreeNode, TreeNodeContent,
   TreeNodeTrigger, TreeProvider, TreeView,
 } from "@/components/kibo-ui/tree";
-import { allFiles, folders, rootFiles, type RepositoryFile } from "@/lib/demo-repository";
+import type { RepositoryTreeItem } from "@/lib/github-types";
 
 type RepositoryTreeProps = {
-  selectedFile: RepositoryFile | null;
-  onSelectFile: (file: RepositoryFile) => void;
+  items: RepositoryTreeItem[];
+  selectedPath: string | null;
+  onSelect: (item: RepositoryTreeItem) => void;
 };
 
-function FileItem({ file, level = 0 }: { file: RepositoryFile; level?: number }) {
-  return (
-    <TreeNode nodeId={file.path} level={level}>
-      <TreeNodeTrigger title={file.path}>
-        <TreeExpander />
-        <TreeIcon />
-        <TreeLabel>{file.name}</TreeLabel>
-      </TreeNodeTrigger>
-    </TreeNode>
-  );
+type TreeItemsProps = {
+  items: RepositoryTreeItem[];
+  parentPath?: string;
+  level?: number;
+};
+
+function TreeItems({ items, parentPath = "", level = 0 }: TreeItemsProps) {
+  const directChildren = items.filter((item) => {
+    if (parentPath && !item.path.startsWith(`${parentPath}/`)) {
+      return false;
+    }
+
+    const relativePath = parentPath
+      ? item.path.slice(parentPath.length + 1)
+      : item.path;
+
+    return !relativePath.includes("/");
+  });
+
+  return directChildren.map((item) => {
+    const isFolder = item.type === "tree";
+
+    return (
+      <TreeNode key={item.sha + item.path} nodeId={item.path} level={level}>
+        <TreeNodeTrigger title={item.path}>
+          <TreeExpander hasChildren={isFolder} />
+          <TreeIcon hasChildren={isFolder} />
+          <TreeLabel>{item.path.split("/").pop()}</TreeLabel>
+        </TreeNodeTrigger>
+
+        <TreeNodeContent hasChildren={isFolder}>
+          <TreeItems items={items} parentPath={item.path} level={level + 1} />
+        </TreeNodeContent>
+      </TreeNode>
+    );
+  });
 }
 
-export default function RepositoryTree({ selectedFile, onSelectFile }: RepositoryTreeProps) {
+export default function RepositoryTree({ items, selectedPath, onSelect }: RepositoryTreeProps) {
   function handleSelection(selectedIds: string[]) {
-    // Clicking the open file again should keep it open.
-    const path = selectedIds[0] ?? selectedFile?.path;
-    const file = allFiles.find((file) => file.path === path);
-
-    // Folders only expand/collapse; they do not replace the open file.
-    if (file) onSelectFile(file);
+    const item = items.find((item) => item.path === selectedIds[0]);
+    if (item) onSelect(item);
   }
 
   return (
     <TreeProvider
-      defaultExpandedIds={["folder:app"]}
-      selectedIds={selectedFile ? [selectedFile.path] : []}
+      selectedIds={selectedPath ? [selectedPath] : []}
       onSelectionChange={handleSelection}
-      animateExpand={false}
     >
       <TreeView className="p-0" aria-label="Repository files">
-        {folders.map((folder) => (
-          <TreeNode key={folder.name} nodeId={`folder:${folder.name}`}>
-            <TreeNodeTrigger>
-              <TreeExpander hasChildren />
-              <TreeIcon hasChildren />
-              <TreeLabel>{folder.name}</TreeLabel>
-            </TreeNodeTrigger>
-            <TreeNodeContent hasChildren>
-              {folder.files.map((file) => <FileItem key={file.path} file={file} level={1} />)}
-            </TreeNodeContent>
-          </TreeNode>
-        ))}
-        {rootFiles.map((file) => <FileItem key={file.path} file={file} />)}
+        <TreeItems items={items} />
       </TreeView>
     </TreeProvider>
   );

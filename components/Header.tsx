@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen, Bookmark, ChevronDown, CodeXml, CreditCard, FolderSearch,
-  History, LogIn, LogOut, Menu, MessageSquare, Moon, Settings, Sparkles, Sun, UserRound,
+  History, LogIn, LogOut, Menu, MessageSquare, Settings, Sparkles, UserRound,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,6 +13,7 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type HeaderUser = {
   name: string;
@@ -49,35 +50,9 @@ const workspaceItems = [
 
 const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: HeaderProps) => {
   const pathname = usePathname();
-  const [isDark, setIsDark] = useState<boolean | null>(null);
   const [demoSignedOut, setDemoSignedOut] = useState(false);
   const currentUser = user === demoUser && demoSignedOut ? null : user;
   const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
-
-  useEffect(() => {
-    const system = window.matchMedia("(prefers-color-scheme: dark)");
-    const applyTheme = () => {
-      let preference: string | null = null;
-      try { preference = localStorage.getItem("srcpeek-theme"); } catch { }
-      const dark = preference === "dark" || (preference !== "light" && system.matches);
-      document.documentElement.classList.toggle("dark", dark);
-      document.documentElement.style.colorScheme = dark ? "dark" : "light";
-      setIsDark(dark);
-    };
-    applyTheme();
-    system.addEventListener("change", applyTheme);
-    return () => system.removeEventListener("change", applyTheme);
-  }, []);
-
-  const toggleTheme = () => {
-    const dark = !document.documentElement.classList.contains("dark");
-    document.documentElement.classList.toggle("dark", dark);
-    document.documentElement.style.colorScheme = dark ? "dark" : "light";
-    setIsDark(dark);
-    try { localStorage.setItem("srcpeek-theme", dark ? "dark" : "light"); } catch {
-      // Theme switching remains available when browser storage is blocked.
-    }
-  };
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 text-foreground backdrop-blur-sm">
@@ -102,12 +77,7 @@ const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: 
           <Button asChild className="mr-1 hidden sm:inline-flex">
             <Link href="/pricing"><Sparkles aria-hidden="true" />Upgrade</Link>
           </Button>
-          <Button variant="ghost" size="icon" onClick={toggleTheme} disabled={isDark === null}
-            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            className="text-muted-foreground">
-            {isDark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-          </Button>
+          <ThemeToggle className="text-muted-foreground" />
 
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden="true" />
 
