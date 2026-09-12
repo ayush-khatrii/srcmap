@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, FormEvent, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bot, CircleDot, Code2, ExternalLink, FileCode2, FolderGit2, GitBranch,
@@ -559,10 +559,7 @@ export default function RepositoryExplorer() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="h-dvh gap-0">
-      <SidebarProvider
-        className="h-dvh min-h-0 overflow-hidden bg-background"
-        style={{ "--sidebar-width": "18rem" } as CSSProperties}
-      >
+      <SidebarProvider className="h-dvh min-h-0 overflow-hidden bg-background">
         <ExplorerWorkspace activeTab={activeTab} setActiveTab={setActiveTab} />
       </SidebarProvider>
     </Tabs>
