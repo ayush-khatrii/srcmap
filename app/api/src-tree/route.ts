@@ -5,6 +5,9 @@ import { parseGitHubUrl } from "@/lib/utils";
 const githubHeaders = {
   Accept: "application/vnd.github+json",
   "X-GitHub-Api-Version": "2026-03-10",
+  ...(process.env.GITHUB_TOKEN
+    ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+    : {}),
 };
 
 export async function GET(request: Request) {
@@ -60,6 +63,15 @@ export async function GET(request: Request) {
         language: repository.language,
         stars: repository.stargazers_count,
         forks: repository.forks_count,
+        watchers: repository.subscribers_count,
+        openIssues: repository.open_issues_count,
+        size: repository.size,
+        visibility: repository.visibility,
+        license: repository.license?.spdx_id ?? null,
+        owner: repository.owner.login,
+        createdAt: repository.created_at,
+        updatedAt: repository.updated_at,
+        pushedAt: repository.pushed_at,
         url: repository.html_url,
       },
       tree,

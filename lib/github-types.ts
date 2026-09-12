@@ -14,7 +14,22 @@ export type RepositoryTreeResponse = {
     language: string | null;
     stars: number;
     forks: number;
+    watchers: number;
+    openIssues: number;
+    size: number;
+    visibility: string;
+    license: string | null;
+    owner: string;
+    createdAt: string;
+    updatedAt: string;
+    pushedAt: string;
     url: string;
   };
   tree: RepositoryTreeItem[];
+};
+
+export type RepositoryFileResponse = {
+  content: string;
+  sha: string;
+  size: number;
 };

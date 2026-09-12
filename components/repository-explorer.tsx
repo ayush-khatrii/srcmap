@@ -1,11 +1,13 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { type CSSProperties, FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Bot, ExternalLink, FileCode2, FolderGit2, GitBranch, History,
-  Menu, Plus, Search, Settings, Sparkles, Star, UserCircle,
+  Bot, CircleDot, Code2, ExternalLink, FileCode2, FolderGit2, GitBranch,
+  GitFork, HardDrive, History, Menu, Palette, Plus, Search, Settings,
+  Sparkles, Star, UserCircle,
 } from "lucide-react";
+import { useCodeTheme } from "@/components/code-theme-provider";
 import RepositoryTree from "@/components/repository-tree";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -23,7 +25,20 @@ import {
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { RepositoryTreeItem, RepositoryTreeResponse } from "@/lib/github-types";
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CODE_THEMES } from "@/constants/code-themes";
+import { cn } from "@/lib/utils";
+import type { BundledLanguage } from "@/components/kibo-ui/code-block";
+import {
+  CodeBlock, CodeBlockBody, CodeBlockContent, CodeBlockCopyButton,
+  CodeBlockFilename, CodeBlockHeader, CodeBlockItem,
+} from "@/components/kibo-ui/code-block";
+import type {
+  RepositoryFileResponse, RepositoryTreeItem, RepositoryTreeResponse,
+} from "@/lib/github-types";
 
 async function fetchRepositoryTree(repoUrl: string): Promise<RepositoryTreeResponse> {
   const response = await fetch(`/api/src-tree?url=${encodeURIComponent(repoUrl)}`);
@@ -34,6 +49,71 @@ async function fetchRepositoryTree(repoUrl: string): Promise<RepositoryTreeRespo
   }
 
   return data;
+}
+
+async function fetchFileContent(
+  repo: string,
+  sha: string,
+  signal: AbortSignal,
+): Promise<RepositoryFileResponse> {
+  const params = new URLSearchParams({ repo, sha });
+  const response = await fetch(`/api/src-content?${params}`, { signal });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "File content could not be loaded.");
+  }
+
+  return data;
+}
+
+function getLanguage(path: string): BundledLanguage {
+  const filename = path.split("/").pop()?.toLowerCase() ?? "";
+  const extension = filename.split(".").pop() ?? "";
+  const languages: Record<string, BundledLanguage> = {
+    js: "javascript", jsx: "jsx", ts: "typescript", tsx: "tsx",
+    json: "json", css: "css", scss: "scss", html: "html",
+    md: "markdown", mdx: "mdx", yml: "yaml", yaml: "yaml",
+    sh: "bash", py: "python", java: "java", go: "go", rs: "rust",
+    c: "c", cpp: "cpp", php: "php", rb: "ruby", sql: "sql",
+  };
+
+  if (filename === "dockerfile") return "dockerfile";
+  return languages[extension] ?? "text";
+}
+
+function FilePreview({ file, content }: {
+  file: RepositoryTreeItem;
+  content: string;
+}) {
+  const language = getLanguage(file.path);
+  const code = [{ language, filename: file.path, code: content }];
+
+  return (
+    <CodeBlock
+      key={file.sha}
+      data={code}
+      value={language}
+      className="flex !h-auto min-h-[calc(100dvh-3.5rem)] !w-full flex-col rounded-none border-0"
+    >
+      <CodeBlockHeader className="shrink-0">
+        <CodeBlockFilename value={language}>{file.path}</CodeBlockFilename>
+        <CodeBlockCopyButton className="ml-auto" aria-label="Copy file content" />
+      </CodeBlockHeader>
+      <CodeBlockBody className="flex flex-1 flex-col">
+        {(item) => (
+          <CodeBlockItem key={item.language} value={item.language} className="flex-1">
+            <CodeBlockContent
+              language={item.language as BundledLanguage}
+              className="h-full [&_pre]:min-h-full"
+            >
+              {item.code}
+            </CodeBlockContent>
+          </CodeBlockItem>
+        )}
+      </CodeBlockBody>
+    </CodeBlock>
+  );
 }
 
 function TreeSkeleton() {
@@ -47,6 +127,38 @@ function TreeSkeleton() {
       ))}
     </div>
   );
+}
+
+function CodeThemeSelector({ className }: { className?: string }) {
+  const { codeTheme, setCodeTheme } = useCodeTheme();
+
+  return (
+    <Select value={codeTheme} onValueChange={setCodeTheme}>
+      <SelectTrigger
+        className={cn("bg-background/50", className)}
+        aria-label="Syntax highlighting theme"
+      >
+        <Palette className="text-muted-foreground" />
+        <SelectValue placeholder="Select code theme" />
+      </SelectTrigger>
+      <SelectContent align="start" className="max-h-80 w-64">
+        <SelectGroup>
+          <SelectLabel>Syntax highlighting theme</SelectLabel>
+          {CODE_THEMES.map((theme) => (
+            <SelectItem key={theme.id} value={theme.id}>
+              {theme.name}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function formatRepositorySize(sizeInKb?: number) {
+  if (sizeInKb === undefined) return "Unknown";
+  if (sizeInKb < 1024) return `${sizeInKb.toLocaleString()} KB`;
+  return `${(sizeInKb / 1024).toFixed(1)} MB`;
 }
 
 type OpenRepositoryDialogProps = {
@@ -150,9 +262,15 @@ function OperationsMenu({ repository, onOpenRepository }: OperationsMenuProps) {
         </div>
 
         <SheetFooter className="border-t p-4">
-          <div className="flex items-center justify-between rounded-lg border p-2">
-            <span className="pl-2 text-sm">Appearance</span>
-            <ThemeToggle className="size-8 text-muted-foreground" />
+          <div className="w-full space-y-3">
+            <div className="space-y-1.5 lg:hidden">
+              <p className="text-xs font-medium text-muted-foreground">Syntax theme</p>
+              <CodeThemeSelector className="w-full" />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-2">
+              <span className="pl-2 text-sm">Appearance</span>
+              <ThemeToggle className="size-8 text-muted-foreground" />
+            </div>
           </div>
         </SheetFooter>
       </SheetContent>
@@ -160,7 +278,12 @@ function OperationsMenu({ repository, onOpenRepository }: OperationsMenuProps) {
   );
 }
 
-function ExplorerWorkspace() {
+type ExplorerWorkspaceProps = {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+};
+
+function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) {
   const [repoUrl, setRepoUrl] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [fileSearch, setFileSearch] = useState("");
@@ -174,15 +297,32 @@ function ExplorerWorkspace() {
     staleTime: Infinity,
   });
 
+  const repository = repositoryQuery.data?.repository;
+  const selectedFile = selectedItem?.type === "blob" ? selectedItem : null;
+  const fileQuery = useQuery({
+    queryKey: ["file-content", repository?.fullName, selectedFile?.sha],
+    queryFn: ({ signal }) => fetchFileContent(repository!.fullName, selectedFile!.sha, signal),
+    enabled: Boolean(repository && selectedFile && activeTab === "content"),
+    retry: false,
+    staleTime: Infinity,
+    gcTime: 10 * 60 * 1000,
+  });
+
   function openRepository(url: string) {
     setSelectedItem(null);
     setFileSearch("");
+    setActiveTab("metadata");
 
     if (url === repoUrl) {
       repositoryQuery.refetch();
     } else {
       setRepoUrl(url);
     }
+  }
+
+  function selectTreeItem(item: RepositoryTreeItem) {
+    setSelectedItem(item);
+    setActiveTab(item.type === "blob" ? "content" : "metadata");
   }
 
   const tree = repositoryQuery.data?.tree ?? [];
@@ -192,30 +332,42 @@ function ExplorerWorkspace() {
     .map((item) => item.path);
   const visibleTree = search
     ? tree.filter((item) =>
-        matchingPaths.includes(item.path) ||
-        matchingPaths.some((path) => path.startsWith(`${item.path}/`)),
-      )
+      matchingPaths.includes(item.path) ||
+      matchingPaths.some((path) => path.startsWith(`${item.path}/`)),
+    )
     : tree;
-  const repository = repositoryQuery.data?.repository;
-
   const metadata = repository ? [
     { label: "Repository", value: repository.fullName },
+    { label: "Owner", value: repository.owner },
     { label: "Default branch", value: repository.branch },
     { label: "Primary language", value: repository.language ?? "Not detected" },
     { label: "Stars", value: repository.stars.toLocaleString() },
     { label: "Forks", value: repository.forks.toLocaleString() },
+    { label: "Watchers", value: (repository.watchers ?? 0).toLocaleString() },
+    { label: "Open issues", value: (repository.openIssues ?? 0).toLocaleString() },
+    { label: "Visibility", value: repository.visibility ?? "public" },
+    { label: "License", value: repository.license ?? "Not specified" },
+    { label: "Repository size", value: formatRepositorySize(repository.size) },
+    { label: "Created", value: repository.createdAt?.slice(0, 10) ?? "Unknown" },
+    { label: "Updated", value: repository.updatedAt?.slice(0, 10) ?? "Unknown" },
+    { label: "Last push", value: repository.pushedAt?.slice(0, 10) ?? "Unknown" },
     { label: "Tree entries", value: tree.length.toLocaleString() },
   ] : [];
 
   return (
     <>
       <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="h-14 flex-row items-center justify-between border-b px-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><FileCode2 /></span>
-            <span className="truncate font-mono text-sm font-semibold">srcpeek<span className="font-normal text-muted-foreground">.dev</span></span>
+        <SidebarHeader className="shrink-0 gap-2 border-b p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><FileCode2 /></span>
+              <span className="truncate font-mono text-sm font-semibold">srcpeek<span className="font-normal text-muted-foreground">.dev</span></span>
+            </div>
+            <div className="flex shrink-0 items-center">
+              <span className="mr-1 h-5 w-px bg-border" />
+              <ThemeToggle className="size-8 text-muted-foreground" />
+            </div>
           </div>
-          <ThemeToggle className="size-8 shrink-0 text-muted-foreground" />
         </SidebarHeader>
 
         <div className="shrink-0 border-b p-3">
@@ -252,20 +404,37 @@ function ExplorerWorkspace() {
 
           {repository && !repositoryQuery.isFetching && (
             <SidebarGroup className="p-2">
-              <div className="flex items-center gap-2 px-2 pb-2 pt-1 text-xs font-medium text-muted-foreground">
-                <FolderGit2 className="size-4" />
-                <span className="truncate">{repository.fullName}</span>
-              </div>
-              <RepositoryTree items={visibleTree} selectedPath={selectedItem?.path ?? null} onSelect={setSelectedItem} />
+              <RepositoryTree
+                items={visibleTree}
+                repositoryName={repository.fullName}
+                selectedPath={selectedItem?.path ?? null}
+                onSelect={selectTreeItem}
+              />
               {visibleTree.length === 0 && <p className="px-3 py-8 text-center text-xs text-muted-foreground">No files found</p>}
             </SidebarGroup>
           )}
         </SidebarContent>
 
-        <SidebarFooter className="h-10 flex-row items-center border-t px-4 text-xs text-muted-foreground">
-          <GitBranch className="size-3.5" />
-          {repository?.branch ?? "No branch"}
-          {repository && <span className="ml-auto">{tree.length} items</span>}
+        <SidebarFooter className="shrink-0 bg-background gap-2 border-t p-3 text-xs text-muted-foreground">
+          {repository ? (
+            <>
+              <div className="flex min-w-0 items-center gap-2">
+                <GitBranch className="size-3.5 shrink-0" />
+                <span className="truncate" title={repository.branch}>{repository.branch}</span>
+                <span className="ml-auto shrink-0">{tree.length.toLocaleString()} entries</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-2">
+                <span className="flex min-w-0 items-center gap-1.5"><Code2 className="size-3.5 shrink-0" /><span className="truncate">{repository.language ?? "Unknown"}</span></span>
+                <span className="flex items-center gap-1.5"><HardDrive className="size-3.5 shrink-0" />{formatRepositorySize(repository.size)}</span>
+                <span className="flex items-center gap-1.5"><Star className="size-3.5 shrink-0" />{repository.stars.toLocaleString()} stars</span>
+                <span className="flex items-center gap-1.5"><GitFork className="size-3.5 shrink-0" />{repository.forks.toLocaleString()} forks</span>
+                <span className="flex items-center gap-1.5"><CircleDot className="size-3.5 shrink-0" />{(repository.openIssues ?? 0).toLocaleString()} issues</span>
+                <span className="truncate capitalize" title={repository.visibility ?? "public"}>{repository.visibility ?? "public"}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2"><GitBranch className="size-3.5" />No repository open</div>
+          )}
         </SidebarFooter>
       </Sidebar>
 
@@ -273,18 +442,38 @@ function ExplorerWorkspace() {
         <header className="flex h-14 shrink-0 items-center gap-1 border-b px-2 sm:px-3">
           <SidebarTrigger />
           <span className="mx-1 h-5 w-px bg-border" />
-          <div className="flex min-w-0 flex-1 items-center gap-2 px-1 text-sm">
-            <FileCode2 className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate font-medium">{selectedItem?.path ?? repository?.fullName ?? "Repository explorer"}</span>
-          </div>
-          <Button variant="outline" className="hidden md:inline-flex" disabled={!repository}><Search />Search</Button>
-          <Button variant="secondary" className="hidden sm:inline-flex" disabled><Sparkles />Explain with AI</Button>
+          <Button
+            variant="outline"
+            className="hidden min-w-0 flex-1 justify-start text-muted-foreground md:flex"
+            disabled={!repository}
+          >
+            <Search />
+            <span>Search code...</span>
+            <span className="ml-auto text-xs opacity-60">⌘ K</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            aria-label="Search code"
+            disabled={!repository}
+          >
+            <Search />
+          </Button>
+          <span className="mx-2 hidden h-6 w-px bg-border lg:block" />
+          <CodeThemeSelector className="hidden w-48 lg:flex" />
+          <span className="mx-2 hidden h-6 w-px bg-border xl:block" />
+          <Button variant="secondary" className="hidden xl:inline-flex" disabled><Sparkles />Explain with AI</Button>
           <Button onClick={() => setDialogOpen(true)} className="hidden sm:inline-flex"><Plus />Open repository</Button>
           <Button onClick={() => setDialogOpen(true)} variant="ghost" size="icon" className="sm:hidden" aria-label="Open repository"><Plus /></Button>
           <OperationsMenu repository={repository} onOpenRepository={() => setDialogOpen(true)} />
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-8">
+        <main className={
+          activeTab === "content" && repository
+            ? "min-h-0 flex-1 overflow-y-auto"
+            : "min-h-0 flex-1 overflow-y-auto p-4 sm:p-8"
+        }>
           {!repoUrl && (
             <div className="mx-auto flex min-h-full max-w-lg flex-col items-center justify-center text-center">
               <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border bg-muted/40"><FolderGit2 className="size-6 text-muted-foreground" /></div>
@@ -303,42 +492,57 @@ function ExplorerWorkspace() {
           )}
 
           {repository && !repositoryQuery.isFetching && (
-            <div className="w-full max-w-4xl">
-              <TabsContent value="content" className="space-y-2">
-                <h2 className="text-lg font-semibold">File content is coming soon</h2>
-                <p className="text-sm text-muted-foreground">
-                  You'll be able to read files here. For now, view their details in the Metadata tab.
-                </p>
-                {selectedItem && (
-                  <p className="break-all font-mono text-sm text-muted-foreground">{selectedItem.path}</p>
+            <div className="w-full">
+              <TabsContent value="content" className="min-h-full">
+                {!selectedFile && (
+                  <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center p-4 text-center">
+                    <FileCode2 className="mb-3 size-8 text-muted-foreground" />
+                    <h2 className="font-medium">Select a file to preview it</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">Choose any text file from the sidebar.</p>
+                  </div>
+                )}
+
+                {selectedFile && fileQuery.isPending && (
+                  <div className="space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-96 w-full" /></div>
+                )}
+
+                {selectedFile && fileQuery.isError && (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-5">
+                    <h2 className="font-medium text-destructive">Could not preview this file</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{fileQuery.error.message}</p>
+                  </div>
+                )}
+
+                {selectedFile && fileQuery.data && (
+                  <FilePreview file={selectedFile} content={fileQuery.data.content} />
                 )}
               </TabsContent>
 
-              <TabsContent value="metadata">
-              <p className="text-sm text-muted-foreground">Public repository</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">{repository.fullName}</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{repository.description ?? "This repository has no description."}</p>
+              <TabsContent value="metadata" className="max-w-4xl">
+                <p className="text-sm text-muted-foreground">Public repository</p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight">{repository.fullName}</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{repository.description ?? "This repository has no description."}</p>
 
-              <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {metadata.map((item) => (
-                  <div key={item.label} className="rounded-xl border bg-card p-4">
-                    <p className="text-xs text-muted-foreground">{item.label}</p>
-                    <p className="mt-1 truncate text-sm font-medium" title={item.value}>{item.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {selectedItem && (
-                <div className="mt-6 rounded-xl border bg-card p-5">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected tree item</p>
-                  <h2 className="mt-2 break-all font-mono text-sm font-medium">{selectedItem.path}</h2>
-                  <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                    <span>Type: {selectedItem.type === "blob" ? "File" : "Folder"}</span>
-                    {selectedItem.size !== undefined && <span>Size: {selectedItem.size.toLocaleString()} bytes</span>}
-                    <span className="truncate">SHA: {selectedItem.sha.slice(0, 12)}</span>
-                  </div>
+                <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {metadata.map((item) => (
+                    <div key={item.label} className="rounded-xl border bg-card p-4">
+                      <p className="text-xs text-muted-foreground">{item.label}</p>
+                      <p className="mt-1 truncate text-sm font-medium" title={item.value}>{item.value}</p>
+                    </div>
+                  ))}
                 </div>
-              )}
+
+                {selectedItem && (
+                  <div className="mt-6 rounded-xl border bg-card p-5">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected tree item</p>
+                    <h2 className="mt-2 break-all font-mono text-sm font-medium">{selectedItem.path}</h2>
+                    <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                      <span>Type: {selectedItem.type === "blob" ? "File" : "Folder"}</span>
+                      {selectedItem.size !== undefined && <span>Size: {selectedItem.size.toLocaleString()} bytes</span>}
+                      <span className="truncate">SHA: {selectedItem.sha.slice(0, 12)}</span>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </div>
           )}
@@ -351,10 +555,15 @@ function ExplorerWorkspace() {
 }
 
 export default function RepositoryExplorer() {
+  const [activeTab, setActiveTab] = useState("metadata");
+
   return (
-    <Tabs defaultValue="metadata" className="h-dvh gap-0">
-      <SidebarProvider className="h-dvh min-h-0 overflow-hidden bg-background">
-        <ExplorerWorkspace />
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-dvh gap-0">
+      <SidebarProvider
+        className="h-dvh min-h-0 overflow-hidden bg-background"
+        style={{ "--sidebar-width": "18rem" } as CSSProperties}
+      >
+        <ExplorerWorkspace activeTab={activeTab} setActiveTab={setActiveTab} />
       </SidebarProvider>
     </Tabs>
   );

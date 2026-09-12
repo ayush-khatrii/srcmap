@@ -99,6 +99,7 @@ import {
   codeToHtml,
 } from "shiki";
 import { Button } from "@/components/ui/button";
+import { useCodeTheme } from "@/components/code-theme-provider";
 import {
   Select,
   SelectContent,
@@ -203,7 +204,6 @@ const lineNumberClassNames = cn(
 
 const darkModeClassNames = cn(
   "dark:[&_.shiki]:!text-[var(--shiki-dark)]",
-  // "dark:[&_.shiki]:!bg-[var(--shiki-dark-bg)]",
   "dark:[&_.shiki]:![font-style:var(--shiki-dark-font-style)]",
   "dark:[&_.shiki]:![font-weight:var(--shiki-dark-font-weight)]",
   "dark:[&_.shiki]:![text-decoration:var(--shiki-dark-text-decoration)]",
@@ -249,9 +249,8 @@ const wordHighlightClassNames = cn(
 );
 
 const codeBlockClassName = cn(
-  "mt-0 bg-background text-sm",
+  "mt-0 bg-transparent text-sm",
   "[&_pre]:py-4",
-  // "[&_.shiki]:!bg-[var(--shiki-bg)]",
   "[&_.shiki]:!bg-transparent",
   "[&_code]:w-full",
   "[&_code]:grid",
@@ -407,7 +406,7 @@ export const CodeBlockFilename = ({
 
   return (
     <div
-      className="flex items-center gap-2 bg-secondary px-4 py-1.5 text-muted-foreground text-xs"
+      className="flex items-center gap-2 bg-secondary px-4 py-1.5 text-muted-foreground text-base"
       {...props}
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" />}
@@ -611,6 +610,7 @@ export const CodeBlockContent = ({
   syntaxHighlighting = true,
   ...props
 }: CodeBlockContentProps) => {
+  const { codeTheme } = useCodeTheme();
   const [html, setHtml] = useState<string | null>(null);
 
   useEffect(() => {
@@ -618,11 +618,24 @@ export const CodeBlockContent = ({
       return;
     }
 
-    highlight(children as string, language, themes)
-      .then(setHtml)
+    let cancelled = false;
+    setHtml(null);
+
+    highlight(
+      children as string,
+      language,
+      themes ?? { light: codeTheme, dark: codeTheme },
+    )
+      .then((result) => {
+        if (!cancelled) setHtml(result);
+      })
       // biome-ignore lint/suspicious/noConsole: "it's fine"
       .catch(console.error);
-  }, [children, themes, syntaxHighlighting, language]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [children, themes, syntaxHighlighting, language, codeTheme]);
 
   if (!(syntaxHighlighting && html)) {
     return <CodeBlockFallback>{children}</CodeBlockFallback>;

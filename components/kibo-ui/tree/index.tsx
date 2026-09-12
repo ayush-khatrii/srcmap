@@ -18,6 +18,7 @@ type TreeContextType = {
   expandedIds: Set<string>;
   selectedIds: string[];
   toggleExpanded: (nodeId: string) => void;
+  collapseAll: () => void;
   handleSelection: (nodeId: string, ctrlKey: boolean) => void;
   showLines?: boolean;
   showIcons?: boolean;
@@ -106,6 +107,10 @@ export const TreeProvider = ({
     });
   }, []);
 
+  const collapseAll = useCallback(() => {
+    setExpandedIds(new Set());
+  }, []);
+
   const handleSelection = useCallback(
     (nodeId: string, ctrlKey = false) => {
       if (!selectable) {
@@ -143,6 +148,7 @@ export const TreeProvider = ({
         expandedIds,
         selectedIds: currentSelectedIds,
         toggleExpanded,
+        collapseAll,
         handleSelection,
         showLines,
         showIcons,
@@ -161,6 +167,31 @@ export const TreeProvider = ({
         {children}
       </motion.div>
     </TreeContext.Provider>
+  );
+};
+
+export type TreeCollapseAllProps = ComponentProps<"button">;
+
+export const TreeCollapseAll = ({
+  children,
+  disabled,
+  onClick,
+  ...props
+}: TreeCollapseAllProps) => {
+  const { collapseAll, expandedIds } = useTree();
+
+  return (
+    <button
+      type="button"
+      disabled={disabled || expandedIds.size === 0}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) collapseAll();
+      }}
+      {...props}
+    >
+      {children}
+    </button>
   );
 };
 
@@ -406,11 +437,13 @@ export const TreeExpander = ({
 
 export type TreeIconProps = ComponentProps<typeof motion.div> & {
   icon?: ReactNode;
+  openIcon?: ReactNode;
   hasChildren?: boolean;
 };
 
 export const TreeIcon = ({
   icon,
+  openIcon,
   hasChildren = false,
   className,
   ...props
@@ -422,6 +455,8 @@ export const TreeIcon = ({
   if (!showIcons) {
     return null;
   }
+
+  const customIcon = hasChildren && isExpanded && openIcon ? openIcon : icon;
 
   const getDefaultIcon = () =>
     hasChildren ? (
@@ -444,7 +479,7 @@ export const TreeIcon = ({
       whileHover={{ scale: 1.1 }}
       {...props}
     >
-      {icon || getDefaultIcon()}
+      {customIcon ?? getDefaultIcon()}
     </motion.div>
   );
 };
