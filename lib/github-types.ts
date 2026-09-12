@@ -20,6 +20,9 @@ export type RepositoryTreeResponse = {
     visibility: string;
     license: string | null;
     owner: string;
+    ownerUrl?: string;
+    ownerAvatarUrl?: string;
+    ownerType?: string;
     createdAt: string;
     updatedAt: string;
     pushedAt: string;

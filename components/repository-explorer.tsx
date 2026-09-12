@@ -3,14 +3,18 @@
 import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Bot, CircleDot, Code2, ExternalLink, FileCode2, FolderGit2, GitBranch,
+  Bot, ChevronDown, CircleDot, Code2, ExternalLink, FileCode2, FolderGit2, GitBranch,
   GitFork, HardDrive, History, Menu, Palette, Plus, Search, Settings,
   Sparkles, Star, UserCircle,
 } from "lucide-react";
 import { useCodeTheme } from "@/components/code-theme-provider";
 import RepositoryTree from "@/components/repository-tree";
+import { RepositoryInfo } from "@/components/repository-info";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -415,25 +419,28 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
           )}
         </SidebarContent>
 
-        <SidebarFooter className="shrink-0 bg-background gap-2 border-t p-3 text-xs text-muted-foreground">
+        <SidebarFooter className="shrink-0 gap-0 border-t bg-background p-0 text-xs text-muted-foreground">
           {repository ? (
-            <>
-              <div className="flex min-w-0 items-center gap-2">
+            <Collapsible className="group/repository-details" defaultOpen={false}>
+              <CollapsibleTrigger className="flex w-full min-w-0 items-center gap-2 p-3 text-left transition-colors hover:bg-accent/50 hover:text-foreground">
                 <GitBranch className="size-3.5 shrink-0" />
                 <span className="truncate" title={repository.branch}>{repository.branch}</span>
                 <span className="ml-auto shrink-0">{tree.length.toLocaleString()} entries</span>
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-2">
-                <span className="flex min-w-0 items-center gap-1.5"><Code2 className="size-3.5 shrink-0" /><span className="truncate">{repository.language ?? "Unknown"}</span></span>
-                <span className="flex items-center gap-1.5"><HardDrive className="size-3.5 shrink-0" />{formatRepositorySize(repository.size)}</span>
-                <span className="flex items-center gap-1.5"><Star className="size-3.5 shrink-0" />{repository.stars.toLocaleString()} stars</span>
-                <span className="flex items-center gap-1.5"><GitFork className="size-3.5 shrink-0" />{repository.forks.toLocaleString()} forks</span>
-                <span className="flex items-center gap-1.5"><CircleDot className="size-3.5 shrink-0" />{(repository.openIssues ?? 0).toLocaleString()} issues</span>
-                <span className="truncate capitalize" title={repository.visibility ?? "public"}>{repository.visibility ?? "public"}</span>
-              </div>
-            </>
+                <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]/repository-details:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-top-1">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t px-3 py-2.5">
+                  <span className="flex min-w-0 items-center gap-1.5"><Code2 className="size-3.5 shrink-0" /><span className="truncate">{repository.language ?? "Unknown"}</span></span>
+                  <span className="flex items-center gap-1.5"><HardDrive className="size-3.5 shrink-0" />{formatRepositorySize(repository.size)}</span>
+                  <span className="flex items-center gap-1.5"><Star className="size-3.5 shrink-0" />{repository.stars.toLocaleString()} stars</span>
+                  <span className="flex items-center gap-1.5"><GitFork className="size-3.5 shrink-0" />{repository.forks.toLocaleString()} forks</span>
+                  <span className="flex items-center gap-1.5"><CircleDot className="size-3.5 shrink-0" />{(repository.openIssues ?? 0).toLocaleString()} issues</span>
+                  <span className="truncate capitalize" title={repository.visibility ?? "public"}>{repository.visibility ?? "public"}</span>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           ) : (
-            <div className="flex items-center gap-2"><GitBranch className="size-3.5" />No repository open</div>
+            <div className="flex items-center gap-2 p-3"><GitBranch className="size-3.5" />No repository open</div>
           )}
         </SidebarFooter>
       </Sidebar>
@@ -442,9 +449,25 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
         <header className="flex h-14 shrink-0 items-center gap-1 border-b px-2 sm:px-3">
           <SidebarTrigger />
           <span className="mx-1 h-5 w-px bg-border" />
+          <div className="min-w-0 flex-1 xl:w-56 xl:flex-none" aria-live="polite" aria-busy={repositoryQuery.isFetching}>
+            {repositoryQuery.isFetching ? (
+              <div className="flex items-center gap-2 px-2" role="status" aria-label="Loading repository">
+                <Skeleton className="size-7 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-2.5 w-16" />
+                  <Skeleton className="h-3 w-full max-w-32" />
+                </div>
+              </div>
+            ) : repository ? (
+              <RepositoryInfo key={repository.fullName} repository={repository} />
+            ) : (
+              <span className="block truncate px-2 text-sm text-muted-foreground">No repository open</span>
+            )}
+          </div>
+          <span className="mx-1 hidden h-5 w-px shrink-0 bg-border xl:block" />
           <Button
             variant="outline"
-            className="hidden min-w-0 flex-1 justify-start text-muted-foreground md:flex"
+            className="hidden min-w-0 flex-1 justify-start text-muted-foreground xl:flex"
             disabled={!repository}
           >
             <Search />
@@ -454,18 +477,18 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="xl:hidden"
             aria-label="Search code"
             disabled={!repository}
           >
             <Search />
           </Button>
           <span className="mx-2 hidden h-6 w-px bg-border lg:block" />
-          <CodeThemeSelector className="hidden w-48 lg:flex" />
-          <span className="mx-2 hidden h-6 w-px bg-border xl:block" />
-          <Button variant="secondary" className="hidden xl:inline-flex" disabled><Sparkles />Explain with AI</Button>
-          <Button onClick={() => setDialogOpen(true)} className="hidden sm:inline-flex"><Plus />Open repository</Button>
-          <Button onClick={() => setDialogOpen(true)} variant="ghost" size="icon" className="sm:hidden" aria-label="Open repository"><Plus /></Button>
+          <CodeThemeSelector className="hidden w-44 shrink-0 lg:flex" />
+          <span className="mx-2 hidden h-6 w-px bg-border 2xl:block" />
+          <Button variant="secondary" className="hidden 2xl:inline-flex" disabled><Sparkles />Explain with AI</Button>
+          <Button onClick={() => setDialogOpen(true)} className="hidden xl:inline-flex"><Plus />Open repository</Button>
+          <Button onClick={() => setDialogOpen(true)} variant="ghost" size="icon" className="xl:hidden" aria-label="Open repository"><Plus /></Button>
           <OperationsMenu repository={repository} onOpenRepository={() => setDialogOpen(true)} />
         </header>
 
