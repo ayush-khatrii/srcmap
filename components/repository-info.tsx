@@ -26,11 +26,11 @@ export function RepositoryInfo({ repository }: RepositoryInfoProps) {
       <DialogTrigger asChild>
         <Button
           variant="ghost"
-          className="h-10 w-full min-w-0 justify-start gap-2 px-2 text-left"
+          className="h-10 w-full min-w-0 justify-start gap-2 rounded-lg px-2 text-left hover:bg-muted/70"
           aria-label={`Repository details for ${repository.fullName}`}
           title={repository.fullName}
         >
-          <Avatar className="size-7">
+          <Avatar className="size-7 ring-1 ring-border">
             <AvatarImage src={repository.ownerAvatarUrl} alt="" />
             <AvatarFallback>{owner.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
@@ -38,7 +38,7 @@ export function RepositoryInfo({ repository }: RepositoryInfoProps) {
             <span className="block truncate text-[11px] font-normal text-muted-foreground">{owner}</span>
             <span className="block truncate text-sm font-semibold">{repository.name}</span>
           </span>
-          <ChevronDown aria-hidden="true" className="text-muted-foreground" />
+          <ChevronDown aria-hidden="true" className="size-4 text-muted-foreground" />
         </Button>
       </DialogTrigger>
 

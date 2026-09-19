@@ -20,8 +20,10 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
+import { prepareSearchAnnotations, type CodeSearchMatch } from "@/lib/code-search";
 import type { IconType } from "react-icons";
 import {
   SiAstro,
@@ -214,14 +216,14 @@ const darkModeClassNames = cn(
 );
 
 const lineHighlightClassNames = cn(
-  "[&_.line.highlighted]:bg-blue-50",
-  "[&_.line.highlighted]:after:bg-blue-500",
+  "[&_.line.highlighted]:bg-yellow-100",
+  "[&_.line.highlighted]:after:bg-yellow-500",
   "[&_.line.highlighted]:after:absolute",
   "[&_.line.highlighted]:after:left-0",
   "[&_.line.highlighted]:after:top-0",
   "[&_.line.highlighted]:after:bottom-0",
   "[&_.line.highlighted]:after:w-0.5",
-  "dark:[&_.line.highlighted]:!bg-blue-500/10"
+  "dark:[&_.line.highlighted]:!bg-yellow-500/15"
 );
 
 const lineDiffClassNames = cn(
@@ -244,8 +246,12 @@ const lineFocusedClassNames = cn(
 );
 
 const wordHighlightClassNames = cn(
-  "[&_.highlighted-word]:bg-blue-50",
-  "dark:[&_.highlighted-word]:!bg-blue-500/10"
+  "[&_.highlighted-word]:bg-yellow-200/60",
+  "dark:[&_.highlighted-word]:!bg-yellow-500/25",
+  "[&_[data-current-match]]:ring-1",
+  "[&_[data-current-match]]:ring-inset",
+  "[&_[data-current-match]]:ring-yellow-600",
+  "dark:[&_[data-current-match]]:ring-yellow-400"
 );
 
 const codeBlockClassName = cn(
@@ -264,7 +270,8 @@ const codeBlockClassName = cn(
 const highlight = (
   html: string,
   language?: BundledLanguage,
-  themes?: CodeOptionsMultipleThemes["themes"]
+  themes?: CodeOptionsMultipleThemes["themes"],
+  searchTerm = "",
 ) =>
   codeToHtml(html, {
     lang: language ?? "typescript",
@@ -273,6 +280,7 @@ const highlight = (
       dark: "github-dark-default",
     },
     transformers: [
+      ...(searchTerm ? [prepareSearchAnnotations(searchTerm)] : []),
       transformerNotationDiff({
         matchAlgorithm: "v3",
       }),
@@ -597,6 +605,8 @@ export const CodeBlockItem = ({
 };
 
 export type CodeBlockContentProps = HTMLAttributes<HTMLDivElement> & {
+  searchTerm?: string;
+  activeMatch?: CodeSearchMatch;
   themes?: CodeOptionsMultipleThemes["themes"];
   language?: BundledLanguage;
   syntaxHighlighting?: boolean;
@@ -605,6 +615,8 @@ export type CodeBlockContentProps = HTMLAttributes<HTMLDivElement> & {
 
 export const CodeBlockContent = ({
   children,
+  searchTerm = "",
+  activeMatch,
   themes,
   language,
   syntaxHighlighting = true,
@@ -612,6 +624,26 @@ export const CodeBlockContent = ({
 }: CodeBlockContentProps) => {
   const { codeTheme } = useCodeTheme();
   const [html, setHtml] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!activeMatch || !html) return;
+    const line = containerRef.current?.querySelectorAll(".line")[activeMatch.line - 1];
+    if (!line) return;
+
+    // One word can span several syntax-colored spans. Outline each piece
+    // belonging to the current match; Kibo already applied the highlighting.
+    let column = 0;
+    const pieces = Array.from(line.children).filter((span) => {
+      const start = column;
+      column += span.textContent?.length ?? 0;
+      return span.classList.contains("highlighted-word") &&
+        start < activeMatch.column + searchTerm.length && column > activeMatch.column;
+    });
+    pieces.forEach((span) => span.setAttribute("data-current-match", "true"));
+    pieces[0]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return () => pieces.forEach((span) => span.removeAttribute("data-current-match"));
+  }, [html, activeMatch, searchTerm]);
 
   useEffect(() => {
     if (!syntaxHighlighting) {
@@ -625,6 +657,7 @@ export const CodeBlockContent = ({
       children as string,
       language,
       themes ?? { light: codeTheme, dark: codeTheme },
+      searchTerm,
     )
       .then((result) => {
         if (!cancelled) setHtml(result);
@@ -635,17 +668,18 @@ export const CodeBlockContent = ({
     return () => {
       cancelled = true;
     };
-  }, [children, themes, syntaxHighlighting, language, codeTheme]);
-
-  if (!(syntaxHighlighting && html)) {
-    return <CodeBlockFallback>{children}</CodeBlockFallback>;
-  }
+  }, [children, searchTerm, themes, syntaxHighlighting, language, codeTheme]);
 
   return (
-    <div
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: "Kinda how Shiki works"
-      dangerouslySetInnerHTML={{ __html: html }}
-      {...props}
-    />
+    <div ref={containerRef} {...props}>
+      {syntaxHighlighting && html ? (
+        <div
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: "Kinda how Shiki works"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      ) : (
+        <CodeBlockFallback>{children}</CodeBlockFallback>
+      )}
+    </div>
   );
 };

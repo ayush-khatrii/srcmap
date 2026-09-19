@@ -1,7 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useQueryStates } from "nuqs";
+import { repositoryUrlParams } from "@/lib/repository-url";
+import { ShareRepository } from "@/components/share-repository";
 import {
   Bot, ChevronDown, CircleDot, Code2, ExternalLink, FileCode2, FolderGit2, GitBranch,
   GitFork, HardDrive, History, Menu, Palette, Plus, Search, Settings,
@@ -10,6 +13,9 @@ import {
 import { useCodeTheme } from "@/components/code-theme-provider";
 import RepositoryTree from "@/components/repository-tree";
 import { RepositoryInfo } from "@/components/repository-info";
+import { CodeSearch } from "@/components/code-search";
+import { SelectionToast } from "@/components/ui/toast";
+import { findCodeMatches, type CodeSearchMatch } from "@/lib/code-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,9 +92,12 @@ function getLanguage(path: string): BundledLanguage {
   return languages[extension] ?? "text";
 }
 
-function FilePreview({ file, content }: {
+function FilePreview({ file, content, searchTerm, matches, activeMatch }: {
   file: RepositoryTreeItem;
   content: string;
+  searchTerm: string;
+  matches: CodeSearchMatch[];
+  activeMatch: number;
 }) {
   const language = getLanguage(file.path);
   const code = [{ language, filename: file.path, code: content }];
@@ -108,6 +117,8 @@ function FilePreview({ file, content }: {
         {(item) => (
           <CodeBlockItem key={item.language} value={item.language} className="flex-1">
             <CodeBlockContent
+              searchTerm={searchTerm}
+              activeMatch={matches[activeMatch]}
               language={item.language as BundledLanguage}
               className="h-full [&_pre]:min-h-full"
             >
@@ -288,10 +299,15 @@ type ExplorerWorkspaceProps = {
 };
 
 function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) {
-  const [repoUrl, setRepoUrl] = useState("");
+  const [{ repo: repoUrl, file: filePath, q: codeSearch }, setUrlState] = useQueryStates(
+    repositoryUrlParams,
+    { history: "replace", shallow: true },
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [fileSearch, setFileSearch] = useState("");
-  const [selectedItem, setSelectedItem] = useState<RepositoryTreeItem | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [activeMatch, setActiveMatch] = useState(0);
+  const [selectionToastOpen, setSelectionToastOpen] = useState(false);
 
   const repositoryQuery = useQuery({
     queryKey: ["repository-tree", repoUrl],
@@ -302,7 +318,18 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
   });
 
   const repository = repositoryQuery.data?.repository;
+  // The URL stores a path; the fetched tree supplies its SHA and other details.
+  const selectedItem = repositoryQuery.data?.tree.find((item) => item.path === filePath) ?? null;
   const selectedFile = selectedItem?.type === "blob" ? selectedItem : null;
+
+  useEffect(() => {
+    setActiveTab(selectedItem?.type === "blob" ? "content" : "metadata");
+    setActiveMatch(0);
+  }, [repoUrl, filePath, selectedItem?.type, setActiveTab]);
+
+  useEffect(() => {
+    setFileSearch("");
+  }, [repoUrl]);
   const fileQuery = useQuery({
     queryKey: ["file-content", repository?.fullName, selectedFile?.sha],
     queryFn: ({ signal }) => fetchFileContent(repository!.fullName, selectedFile!.sha, signal),
@@ -312,20 +339,57 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
     gcTime: 10 * 60 * 1000,
   });
 
+  // Wait for a short pause in typing before scanning and highlighting the file.
+  useEffect(() => {
+    setActiveMatch(0);
+    const timer = setTimeout(() => setDebouncedSearch(codeSearch), 300);
+    return () => clearTimeout(timer);
+  }, [codeSearch]);
+
+  // Count each word occurrence locally. No extra API requests.
+  const matches = useMemo(
+    () => findCodeMatches(fileQuery.data?.content ?? "", debouncedSearch),
+    [fileQuery.data?.content, debouncedSearch],
+  );
+
+  function updateCodeSearch(value: string) {
+    void setUrlState({ q: value });
+    if (!value) setDebouncedSearch("");
+    setActiveMatch(0);
+  }
+
+  function focusCodeSearch() {
+    if (!selectedFile) {
+      setSelectionToastOpen(true);
+      return;
+    }
+    setActiveTab("content");
+  }
+
+  function navigateMatch(direction: number) {
+    if (!matches.length || codeSearch !== debouncedSearch) return;
+    setActiveTab("content");
+    setActiveMatch((current) => (current + direction + matches.length) % matches.length);
+  }
+
   function openRepository(url: string) {
-    setSelectedItem(null);
+    // Clear the previous file and search together when opening another repo.
+    void setUrlState({ repo: url, file: "", q: "" }, { history: "push" });
+    setDebouncedSearch("");
+    setActiveMatch(0);
     setFileSearch("");
     setActiveTab("metadata");
 
     if (url === repoUrl) {
       repositoryQuery.refetch();
-    } else {
-      setRepoUrl(url);
     }
   }
 
   function selectTreeItem(item: RepositoryTreeItem) {
-    setSelectedItem(item);
+    void setUrlState({ file: item.path, q: "" }, { history: "push" });
+    setDebouncedSearch("");
+    setActiveMatch(0);
+    setSelectionToastOpen(false);
     setActiveTab(item.type === "blob" ? "content" : "metadata");
   }
 
@@ -361,31 +425,31 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
   return (
     <>
       <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="shrink-0 gap-2 border-b p-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><FileCode2 /></span>
-              <span className="truncate font-mono text-sm font-semibold">srcpeek<span className="font-normal text-muted-foreground">.dev</span></span>
+        <SidebarHeader className="shrink-0 gap-0 border-b bg-sidebar px-3 py-2">
+          <div className="flex h-10 items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20"><FileCode2 className="size-4" /></span>
+              <span className="truncate font-mono text-sm font-semibold tracking-tight">srcpeek<span className="font-normal text-muted-foreground">.dev</span></span>
             </div>
-            <div className="flex shrink-0 items-center">
-              <span className="mr-1 h-5 w-px bg-border" />
-              <ThemeToggle className="size-8 text-muted-foreground" />
+            <div className="flex shrink-0 items-center gap-1">
+              <span className="h-5 w-px bg-border" />
+              <ThemeToggle className="size-8 rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
             </div>
           </div>
         </SidebarHeader>
 
-        <div className="shrink-0 border-b p-3">
-          <TabsList aria-label="File details" className="w-full">
+        <div className="shrink-0 border-b bg-sidebar px-3 pb-3">
+          <TabsList aria-label="File details" className="h-9 w-full rounded-lg bg-sidebar-accent/60 p-1">
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="metadata">Metadata</TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="border-b p-3">
+        <div className="border-b bg-sidebar px-3 py-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={fileSearch} onChange={(event) => setFileSearch(event.target.value)}
-              placeholder="Find a file..." className="pl-8" disabled={!repository} />
+              placeholder="Find a file..." className="h-9 rounded-lg bg-sidebar-accent/35 pl-8 shadow-none focus-visible:bg-background" disabled={!repository} />
           </div>
         </div>
 
@@ -446,10 +510,11 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
       </Sidebar>
 
       <SidebarInset className="h-dvh min-h-0 min-w-0 overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center gap-1 border-b px-2 sm:px-3">
-          <SidebarTrigger />
-          <span className="mx-1 h-5 w-px bg-border" />
-          <div className="min-w-0 flex-1 xl:w-56 xl:flex-none" aria-live="polite" aria-busy={repositoryQuery.isFetching}>
+        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-2 py-2 sm:px-3 lg:h-14 lg:flex-nowrap lg:py-0">
+          <div className="flex min-w-0 flex-1 items-center gap-1 sm:flex-none">
+            <SidebarTrigger className="size-9 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
+            <div className="min-w-0 max-w-60 flex-1 sm:w-56" aria-live="polite" aria-busy={repositoryQuery.isFetching}>
             {repositoryQuery.isFetching ? (
               <div className="flex items-center gap-2 px-2" role="status" aria-label="Loading repository">
                 <Skeleton className="size-7 shrink-0 rounded-full" />
@@ -463,33 +528,23 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
             ) : (
               <span className="block truncate px-2 text-sm text-muted-foreground">No repository open</span>
             )}
+            </div>
           </div>
-          <span className="mx-1 hidden h-5 w-px shrink-0 bg-border xl:block" />
-          <Button
-            variant="outline"
-            className="hidden min-w-0 flex-1 justify-start text-muted-foreground xl:flex"
-            disabled={!repository}
-          >
-            <Search />
-            <span>Search code...</span>
-            <span className="ml-auto text-xs opacity-60">⌘ K</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="xl:hidden"
-            aria-label="Search code"
-            disabled={!repository}
-          >
-            <Search />
-          </Button>
-          <span className="mx-2 hidden h-6 w-px bg-border lg:block" />
-          <CodeThemeSelector className="hidden w-44 shrink-0 lg:flex" />
-          <span className="mx-2 hidden h-6 w-px bg-border 2xl:block" />
-          <Button variant="secondary" className="hidden 2xl:inline-flex" disabled><Sparkles />Explain with AI</Button>
-          <Button onClick={() => setDialogOpen(true)} className="hidden xl:inline-flex"><Plus />Open repository</Button>
-          <Button onClick={() => setDialogOpen(true)} variant="ghost" size="icon" className="xl:hidden" aria-label="Open repository"><Plus /></Button>
-          <OperationsMenu repository={repository} onOpenRepository={() => setDialogOpen(true)} />
+          <CodeSearch value={codeSearch} onChange={updateCodeSearch} onFocus={focusCodeSearch}
+            searching={codeSearch !== debouncedSearch}
+            hasFile={Boolean(selectedFile)} loading={fileQuery.isPending} failed={fileQuery.isError}
+            matchCount={matches.length} activeMatch={activeMatch} onNavigate={navigateMatch}
+            className="order-last w-full lg:order-none lg:flex-1 lg:self-auto" />
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <CodeThemeSelector className="hidden w-44 xl:flex" />
+            <span className="mx-1 hidden h-6 w-px bg-border xl:block" />
+            <Button variant="secondary" className="hidden h-9 2xl:inline-flex" disabled><Sparkles />Explain with AI</Button>
+            <Button onClick={() => setDialogOpen(true)} className="hidden h-9 md:inline-flex"><Plus />Open repository</Button>
+            <Button onClick={() => setDialogOpen(true)} variant="outline" size="icon" className="size-9 md:hidden" aria-label="Open repository"><Plus /></Button>
+            <ShareRepository repo={repository?.url ?? repoUrl} file={filePath} search={codeSearch}
+              disabled={!repository || repositoryQuery.isFetching || repositoryQuery.isError} />
+            <OperationsMenu repository={repository} onOpenRepository={() => setDialogOpen(true)} />
+          </div>
         </header>
 
         <main className={
@@ -516,6 +571,11 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
 
           {repository && !repositoryQuery.isFetching && (
             <div className="w-full">
+              {filePath && !selectedItem && (
+                <p role="status" className="break-words border-b bg-muted/40 p-4 text-sm text-muted-foreground">
+                  The shared file “{filePath}” is not in this repository’s current tree. Choose a file from the sidebar.
+                </p>
+              )}
               <TabsContent value="content" className="min-h-full">
                 {!selectedFile && (
                   <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center p-4 text-center">
@@ -537,7 +597,8 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
                 )}
 
                 {selectedFile && fileQuery.data && (
-                  <FilePreview file={selectedFile} content={fileQuery.data.content} />
+                  <FilePreview file={selectedFile} content={fileQuery.data.content}
+                    searchTerm={debouncedSearch} matches={matches} activeMatch={activeMatch} />
                 )}
               </TabsContent>
 
@@ -573,6 +634,7 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
       </SidebarInset>
 
       <OpenRepositoryDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={openRepository} />
+      <SelectionToast open={selectionToastOpen} onOpenChange={setSelectionToastOpen} />
     </>
   );
 }

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/components/query-provider";
 import { CodeThemeProvider } from "@/components/code-theme-provider";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 const geistHeading = Geist({ subsets: ['latin'], variable: '--font-heading' });
 
@@ -35,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="h-dvh overflow-hidden">
         <ThemeProvider>
           <CodeThemeProvider>
-            <QueryProvider>{children}</QueryProvider>
+            <NuqsAdapter><QueryProvider>{children}</QueryProvider></NuqsAdapter>
           </CodeThemeProvider>
         </ThemeProvider>
       </body>

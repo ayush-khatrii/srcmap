@@ -70,6 +70,9 @@ export default function RepositoryTree({
 
   return (
     <TreeProvider
+      defaultExpandedIds={selectedPath?.split("/").slice(0, -1).map((_, index, folders) =>
+        folders.slice(0, index + 1).join("/"),
+      ) ?? []}
       selectedIds={selectedPath ? [selectedPath] : []}
       onSelectionChange={handleSelection}
     >
