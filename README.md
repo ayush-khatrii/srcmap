@@ -1,4 +1,7 @@
-# Srcmap
+
+<img width="100" height="100" alt="image" src="https://github.com/user-attachments/assets/ae76978b-d474-4b7b-8314-b54e24acad50" />
+
+ # Srcmap
 
 **Explore GitHub code without the setup.**
 
