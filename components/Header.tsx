@@ -61,7 +61,7 @@ const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: 
         <Link href="/" aria-label="srcpeek home" className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <CodeXml className="hidden size-6 text-primary sm:block" aria-hidden="true" />
           <span className="font-mono text-lg font-semibold tracking-tight">
-            srcpeek<span className="font-normal text-muted-foreground">.sh</span>
+            srcmap<span className="font-normal text-muted-foreground">.cc</span>
           </span>
         </Link>
 
