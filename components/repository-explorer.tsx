@@ -428,7 +428,7 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
         <SidebarHeader className="shrink-0 gap-0 border-b bg-sidebar px-3 py-2">
           <div className="flex h-10 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <img src="/logo.svg" className="size-6 rounded-md border-border/50" fetchpriority="high" decoding="async" />
+              <img src="/logo.svg" className="size-6 rounded-md border-border/50" fetchPriority="high" decoding="async" />
               <span className="font-mono text-lg font-bold tracking-tight">
                srcmap
               </span>
