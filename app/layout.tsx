@@ -57,11 +57,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/logo.png", type: "image/png" },
+      { url: "/logo.svg", type: "image/svg" },
     ],
-    shortcut: ["/logo.png"],
+    shortcut: ["/logo.svg"],
     apple: [
-      { url: "/logo.png" },
+      { url: "/logo.svg" },
     ],
   },
   manifest: "/site.webmanifest",
@@ -73,7 +73,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [
       {
-        url: "/logo.png",
+        url: "/logo.svg",
         width: 512,
         height: 512,
         alt: `${SITE_NAME} logo`,
@@ -85,7 +85,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ["/logo.png"],
+    images: ["/logo.svg"],
   },
   robots: {
     index: true,
