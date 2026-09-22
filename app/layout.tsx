@@ -28,6 +28,9 @@ const SITE_DESCRIPTION =
   "Srcmap opens public GitHub repositories in a VS Code-style workspace in your browser. Browse folders, read syntax-highlighted code, search within files, and share links straight to the file and search you found.";
 
 export const metadata: Metadata = {
+   verification: {
+    google: "3hp8pbeNlLvW8x4Mn98u9_nGPqh9GIj1kpGRvRHkv7M"
+  },
   metadataBase: new URL(SITE_URL),
   title: {
     default: SITE_TITLE,
