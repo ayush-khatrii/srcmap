@@ -59,7 +59,7 @@ const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: 
       <div className="mx-auto flex h-16 max-w-full items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
 
         <Link href="/" aria-label="srcpeek home" className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <CodeXml className="hidden size-6 text-primary sm:block" aria-hidden="true" />
+          <img src="/logo.png" className="size-5" />
           <span className="font-mono text-lg font-semibold tracking-tight">
             srcmap<span className="font-normal text-muted-foreground">.cc</span>
           </span>
