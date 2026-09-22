@@ -428,8 +428,10 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
         <SidebarHeader className="shrink-0 gap-0 border-b bg-sidebar px-3 py-2">
           <div className="flex h-10 items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20"><FileCode2 className="size-4" /></span>
-              <span className="truncate font-mono text-sm font-semibold tracking-tight">srcpeek<span className="font-normal text-muted-foreground">.dev</span></span>
+              <img src="/logo.png" className="size-5" />
+              <span className="font-mono text-lg font-semibold tracking-tight">
+               srcmap<span className="font-normal text-muted-foreground">.cc</span>
+              </span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <span className="h-5 w-px bg-border" />
