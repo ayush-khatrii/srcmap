@@ -21,9 +21,80 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://srcmap.cc";
+const SITE_NAME = "Srcmap";
+const SITE_TITLE = "Srcmap — Explore GitHub Repositories Without the Setup";
+const SITE_DESCRIPTION =
+  "Srcmap opens public GitHub repositories in a VS Code-style workspace in your browser. Browse folders, read syntax-highlighted code, search within files, and share links straight to the file and search you found.";
+
 export const metadata: Metadata = {
-  title: "SrcPeek — Explore a Repository",
-  description: "Browse and understand public GitHub repositories in your browser.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "GitHub repository browser",
+    "explore GitHub code",
+    "code viewer",
+    "syntax highlighting",
+    "read source code online",
+    "GitHub file search",
+    "VS Code style browser",
+    "Srcmap",
+  ],
+  authors: [{ name: "Ayush Khatri", url: "https://github.com/ayush-khatrii" }],
+  creator: "Ayush Khatri",
+  publisher: "Ayush Khatri",
+  category: "technology",
+  alternates: {
+    canonical: SITE_URL,
+  },
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: ["/logo.png"],
+    apple: [
+      { url: "/logo.png" },
+    ],
+  },
+  manifest: "/site.webmanifest",
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: `${SITE_NAME} logo`,
+      },
+    ],
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
