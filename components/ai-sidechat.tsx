@@ -1,10 +1,79 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { Children, FormEvent, isValidElement, type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { ArrowUp, Bot, FileCode2, LoaderCircle, X } from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
+import type { BundledLanguage } from "@/components/kibo-ui/code-block";
+import {
+  CodeBlock, CodeBlockBody, CodeBlockContent, CodeBlockCopyButton,
+  CodeBlockFilename, CodeBlockHeader, CodeBlockItem,
+} from "@/components/kibo-ui/code-block";
 
 type Message = { role: "user" | "assistant"; content: string };
+
+const languageAliases: Record<string, BundledLanguage> = {
+  bash: "bash", sh: "bash", shell: "bash", js: "javascript", javascript: "javascript",
+  jsx: "jsx", ts: "typescript", typescript: "typescript", tsx: "tsx", json: "json",
+  html: "html", css: "css", scss: "scss", md: "markdown", markdown: "markdown",
+  py: "python", python: "python", go: "go", rust: "rust", rs: "rust", java: "java",
+  sql: "sql", yaml: "yaml", yml: "yaml", xml: "xml", text: "text" as BundledLanguage, plaintext: "text" as BundledLanguage,
+};
+
+function MarkdownCodeBlock({ children }: { children?: ReactNode }) {
+  const codeElement = Children.toArray(children).find(isValidElement) as ReactElement<{
+    className?: string;
+    children?: ReactNode;
+  }> | undefined;
+  const className = codeElement?.props.className ?? "";
+  const languageName = /language-([\w+#.-]+)/.exec(className)?.[1]?.toLowerCase() ?? "text";
+  const language = languageAliases[languageName] ?? ("text" as BundledLanguage);
+  const source = String(codeElement?.props.children ?? "").replace(/\n$/, "");
+  const data = [{ language, filename: languageName, code: source }];
+
+  return (
+    <CodeBlock data={data} defaultValue={language} className="my-3 w-full max-w-full rounded-lg border bg-muted/20 text-xs">
+      <CodeBlockHeader className="min-h-8 bg-muted/50 px-2">
+        <CodeBlockFilename value={language} className="text-[11px]">{languageName}</CodeBlockFilename>
+        <CodeBlockCopyButton className="ml-auto size-7" aria-label="Copy code example" />
+      </CodeBlockHeader>
+      <CodeBlockBody>
+        {(item) => <CodeBlockItem key={item.language} value={item.language}>
+          <CodeBlockContent language={item.language as BundledLanguage} className="max-w-full overflow-x-auto text-xs [&_pre]:py-3">
+            {item.code}
+          </CodeBlockContent>
+        </CodeBlockItem>}
+      </CodeBlockBody>
+    </CodeBlock>
+  );
+}
+
+const markdownComponents: Components = {
+  h1: ({ children }) => <h1 className="mb-2 mt-4 text-base font-semibold first:mt-0">{children}</h1>,
+  h2: ({ children }) => <h2 className="mb-2 mt-4 text-sm font-semibold first:mt-0">{children}</h2>,
+  h3: ({ children }) => <h3 className="mb-1.5 mt-3 text-sm font-semibold">{children}</h3>,
+  p: ({ children }) => <p className="my-2 leading-6 first:mt-0 last:mb-0">{children}</p>,
+  ul: ({ children }) => <ul className="my-2 list-disc space-y-1 pl-5">{children}</ul>,
+  ol: ({ children }) => <ol className="my-2 list-decimal space-y-1 pl-5">{children}</ol>,
+  li: ({ children }) => <li className="pl-0.5">{children}</li>,
+  blockquote: ({ children }) => <blockquote className="my-3 border-l-2 border-primary/40 pl-3 text-muted-foreground">{children}</blockquote>,
+  a: ({ children, href }) => <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-4">{children}</a>,
+  hr: () => <hr className="my-4 border-border/60" />,
+  table: ({ children }) => <div className="my-3 max-w-full overflow-x-auto"><table className="w-full border-collapse text-left text-xs">{children}</table></div>,
+  th: ({ children }) => <th className="border-b px-2 py-1.5 font-semibold">{children}</th>,
+  td: ({ children }) => <td className="border-b border-border/50 px-2 py-1.5">{children}</td>,
+  code: ({ children, className }) => className
+    ? <code className={className}>{children}</code>
+    : <code className="rounded bg-muted/70 px-1 py-0.5 font-mono text-[0.9em]">{children}</code>,
+  pre: ({ children }) => <MarkdownCodeBlock>{children}</MarkdownCodeBlock>,
+};
+
+function AssistantMarkdown({ content }: { content: string }) {
+  return <div className="min-w-0 break-words text-sm leading-6 [&_strong]:font-semibold [&_strong]:text-foreground">
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{content}</ReactMarkdown>
+  </div>;
+}
 
 export function AiSidechat({ open, onOpenChange, repository, snippet, attachments = [], onRemoveAttachment, onOpenFile }: {
   open: boolean;
@@ -61,7 +130,9 @@ export function AiSidechat({ open, onOpenChange, repository, snippet, attachment
         <p className="font-medium text-foreground">Explain a snippet or ask a question</p>
         <p className="mt-1">Paste code in the box below. {repository ? `Context: ${repository.fullName}.` : "Repository context will be included when available."}</p>
       </div>}
-      {messages.map((message, index) => <div key={index} className={`whitespace-pre-wrap rounded-xl px-3.5 py-3 text-sm ${message.role === "user" ? "ml-8 bg-primary text-primary-foreground" : "mr-4 border bg-muted/40"}`}>{message.content}</div>)}
+      {messages.map((message, index) => message.role === "user"
+        ? <div key={index} className="ml-auto w-fit max-w-[88%] whitespace-pre-wrap rounded-2xl bg-primary px-3.5 py-2.5 text-sm leading-6 text-primary-foreground">{message.content}</div>
+        : <div key={index} className="w-full min-w-0 py-1 text-foreground"><AssistantMarkdown content={message.content} /></div>)}
       {loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" />Thinking…</div>}
     </div>
     <form onSubmit={send} className="border-t p-3">
