@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen, Bookmark, ChevronDown, CodeXml, CreditCard, FolderSearch,
-  History, LogIn, LogOut, Menu, MessageSquare, Settings, Sparkles, UserRound,
+  Bot, History, LogIn, LogOut, Menu, MessageSquare, Settings, UserRound,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -75,7 +75,7 @@ const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: 
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <Button asChild className="mr-1 hidden sm:inline-flex">
-            <Link href="/pricing"><Sparkles aria-hidden="true" />Upgrade</Link>
+            <Link href="/pricing"><Bot aria-hidden="true" />Upgrade</Link>
           </Button>
           <ThemeToggle className="text-muted-foreground" />
 
@@ -103,12 +103,12 @@ const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: 
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem asChild><Link href="/account"><UserRound aria-hidden="true" />My profile</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/account/usage"><Sparkles aria-hidden="true" />AI usage & limits</Link></DropdownMenuItem>
+                  <DropdownMenuItem asChild><Link href="/account/usage"><Bot aria-hidden="true" />AI usage & limits</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/account/billing"><CreditCard aria-hidden="true" />Billing & subscription</Link></DropdownMenuItem>
                   <DropdownMenuItem asChild><Link href="/account/settings"><Settings aria-hidden="true" />Settings</Link></DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="text-primary"><Link href="/pricing"><Sparkles aria-hidden="true" />Upgrade for more AI</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild className="text-primary"><Link href="/pricing"><Bot aria-hidden="true" />Upgrade for more AI</Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem disabled={user !== demoUser && !onSignOut} onSelect={() => {
                   if (onSignOut) onSignOut();
@@ -143,7 +143,7 @@ const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: 
             <DropdownMenuLabel>Resources</DropdownMenuLabel>
             <DropdownMenuGroup>
               <DropdownMenuItem asChild><Link href="/docs"><BookOpen aria-hidden="true" />Documentation</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link href="/pricing"><Sparkles aria-hidden="true" />Plans & pricing</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/pricing"><Bot aria-hidden="true" />Plans & pricing</Link></DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>

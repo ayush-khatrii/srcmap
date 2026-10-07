@@ -1,14 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
 import { repositoryUrlParams } from "@/lib/repository-url";
 import { ShareRepository } from "@/components/share-repository";
+import { AiSidechat } from "@/components/ai-sidechat";
 import {
   Bot, ChevronDown, CircleDot, Code2, ExternalLink, FileCode2, FolderGit2, GitBranch,
-  GitFork, HardDrive, History, Menu, Palette, Plus, Search, Settings,
-  Sparkles, Star, UserCircle,
+  GitFork, HardDrive, Menu, Palette, Plus, Search, Star,
 } from "lucide-react";
 import { useCodeTheme } from "@/components/code-theme-provider";
 import RepositoryTree from "@/components/repository-tree";
@@ -92,17 +92,30 @@ function getLanguage(path: string): BundledLanguage {
   return languages[extension] ?? "text";
 }
 
-function FilePreview({ file, content, searchTerm, matches, activeMatch }: {
+function FilePreview({ file, content, searchTerm, matches, activeMatch, onAddLine }: {
   file: RepositoryTreeItem;
   content: string;
   searchTerm: string;
   matches: CodeSearchMatch[];
   activeMatch: number;
+  onAddLine: (path: string, code: string, line: number) => void;
 }) {
   const language = getLanguage(file.path);
   const code = [{ language, filename: file.path, code: content }];
+  const [hoverLine, setHoverLine] = useState<{ line: number; top: number } | null>(null);
 
   return (
+    <div className="relative" onMouseLeave={() => setHoverLine(null)} onMouseMove={(event) => {
+      const target = event.target as HTMLElement;
+      const line = target.closest(".line");
+      const root = event.currentTarget;
+      if (!line || !root.contains(line)) { setHoverLine(null); return; }
+      const allLines = root.querySelectorAll(".line");
+      const index = Array.from(allLines).indexOf(line);
+      const rootRect = root.getBoundingClientRect();
+      const lineRect = line.getBoundingClientRect();
+      if (index >= 0) setHoverLine({ line: index + 1, top: lineRect.top - rootRect.top });
+    }}>
     <CodeBlock
       key={file.sha}
       data={code}
@@ -128,6 +141,11 @@ function FilePreview({ file, content, searchTerm, matches, activeMatch }: {
         )}
       </CodeBlockBody>
     </CodeBlock>
+    {hoverLine && <Button variant="secondary" className="absolute right-3 z-10 h-7 gap-1.5 rounded-full border px-2.5 text-xs shadow-md" style={{ top: hoverLine.top }} onMouseDown={(event) => event.preventDefault()} onClick={() => {
+      const line = content.split("\n")[hoverLine.line - 1] ?? "";
+      onAddLine(file.path, line, hoverLine.line);
+    }}><Bot className="size-3.5"/>Add to chat</Button>}
+    </div>
   );
 }
 
@@ -226,9 +244,13 @@ function OpenRepositoryDialog({ open, onOpenChange, onSubmit }: OpenRepositoryDi
 type OperationsMenuProps = {
   repository?: RepositoryTreeResponse["repository"];
   onOpenRepository: () => void;
+  onFocusSearch: () => void;
+  repoUrl: string;
+  filePath: string;
+  codeSearch: string;
 };
 
-function OperationsMenu({ repository, onOpenRepository }: OperationsMenuProps) {
+function OperationsMenu({ repository, onOpenRepository, onFocusSearch, repoUrl, filePath, codeSearch }: OperationsMenuProps) {
   const [open, setOpen] = useState(false);
 
   function openRepositoryDialog() {
@@ -241,52 +263,37 @@ function OperationsMenu({ repository, onOpenRepository }: OperationsMenuProps) {
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Open workspace menu"><Menu /></Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[88vw] gap-0 p-0 sm:max-w-sm">
-        <SheetHeader className="border-b p-5 pr-14">
-          <SheetTitle>Workspace</SheetTitle>
-          <SheetDescription>Repository tools and account options</SheetDescription>
+      <SheetContent side="right" className="w-[min(92vw,380px)] gap-0 border-l p-0 sm:max-w-[380px]">
+        <SheetHeader className="border-b bg-muted/20 p-5 pr-14">
+          <SheetTitle className="flex items-center gap-2"><span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileCode2 className="size-4" /></span>Workspace menu</SheetTitle>
+          <SheetDescription>Repository, appearance, and display options</SheetDescription>
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <div className="mb-3 rounded-xl border bg-muted/40 p-3">
-            <p className="truncate text-sm font-medium">{repository?.fullName ?? "No repository open"}</p>
+          <div className="mb-4 rounded-xl border bg-muted/40 p-3">
+            <p className="truncate text-sm font-semibold">{repository?.fullName ?? "No repository open"}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {repository ? `Public repository · ${repository.branch}` : "Open a repository to begin"}
             </p>
           </div>
 
-          <p className="px-2 py-2 text-xs font-medium text-muted-foreground">Repository</p>
+          <p className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Repository</p>
           <Button variant="ghost" className="w-full justify-start" onClick={openRepositoryDialog}><Plus />Open another repository</Button>
-          <Button variant="ghost" className="w-full justify-start"><Search />Search files</Button>
-          <Button variant="ghost" className="w-full justify-start"><Star />Save repository</Button>
-          <Button variant="ghost" className="w-full justify-start"><History />Recently viewed</Button>
+          <Button variant="ghost" className="w-full justify-start" disabled={!repository} onClick={() => { setOpen(false); onFocusSearch(); }}><Search />Search this file</Button>
           {repository && (
             <Button asChild variant="ghost" className="w-full justify-start">
               <a href={repository.url} target="_blank" rel="noreferrer"><ExternalLink />View on GitHub</a>
             </Button>
           )}
-
-          <div className="my-3 h-px bg-border" />
-          <p className="px-2 py-2 text-xs font-medium text-muted-foreground">Coming next</p>
-          <Button variant="ghost" className="w-full justify-start" disabled><Sparkles />Explain with AI</Button>
-          <Button variant="ghost" className="w-full justify-start" disabled><Bot />AI conversations</Button>
-
-          <div className="my-3 h-px bg-border" />
-          <Button variant="ghost" className="w-full justify-start"><UserCircle />Profile and usage</Button>
-          <Button variant="ghost" className="w-full justify-start"><Settings />Settings</Button>
+          <div className="my-4 h-px bg-border" />
+          <p className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Appearance</p>
+          <div className="mb-2 flex items-center justify-between rounded-lg border px-3 py-2"><span className="text-sm">Color mode</span><ThemeToggle className="size-8 text-muted-foreground" /></div>
+          <div className="space-y-1.5 px-1"><p className="text-xs text-muted-foreground">Code theme</p><CodeThemeSelector className="w-full" /></div>
         </div>
 
-        <SheetFooter className="border-t p-4">
-          <div className="w-full space-y-3">
-            <div className="space-y-1.5 lg:hidden">
-              <p className="text-xs font-medium text-muted-foreground">Syntax theme</p>
-              <CodeThemeSelector className="w-full" />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-2">
-              <span className="pl-2 text-sm">Appearance</span>
-              <ThemeToggle className="size-8 text-muted-foreground" />
-            </div>
-          </div>
+        <SheetFooter className="border-t p-3">
+          <ShareRepository repo={repository?.url ?? repoUrl} file={filePath} search={codeSearch}
+            disabled={!repository} />
         </SheetFooter>
       </SheetContent>
     </Sheet>
@@ -308,6 +315,15 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeMatch, setActiveMatch] = useState(0);
   const [selectionToastOpen, setSelectionToastOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiAttachments, setAiAttachments] = useState<{ path: string; code: string; startLine?: number; endLine?: number }[]>([]);
+  function addAiAttachment(attachment: { path: string; code: string; startLine?: number; endLine?: number }) {
+    setAiAttachments((current) => current.some((item) => item.path === attachment.path && item.startLine === attachment.startLine)
+      ? current : [...current, attachment]);
+    setAiOpen(true);
+  }
+  const [openFiles, setOpenFiles] = useState<string[]>([]);
+  const [filesLoaded, setFilesLoaded] = useState(false);
 
   const repositoryQuery = useQuery({
     queryKey: ["repository-tree", repoUrl],
@@ -321,6 +337,25 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
   // The URL stores a path; the fetched tree supplies its SHA and other details.
   const selectedItem = repositoryQuery.data?.tree.find((item) => item.path === filePath) ?? null;
   const selectedFile = selectedItem?.type === "blob" ? selectedItem : null;
+
+  useEffect(() => {
+    setFilesLoaded(false);
+    if (!repoUrl) { setOpenFiles([]); setFilesLoaded(true); return; }
+    try {
+      const saved = localStorage.getItem(`srcpeek:open-files:${repoUrl}`);
+      setOpenFiles(saved ? JSON.parse(saved).filter((path: unknown) => typeof path === "string") : []);
+    } catch { setOpenFiles([]); }
+    setFilesLoaded(true);
+  }, [repoUrl]);
+
+  useEffect(() => {
+    if (!filesLoaded || !repoUrl || !selectedFile) return;
+    setOpenFiles((current) => current.includes(selectedFile.path) ? current : [...current, selectedFile.path]);
+  }, [selectedFile?.path, filesLoaded, repoUrl]);
+
+  useEffect(() => {
+    if (filesLoaded && repoUrl) localStorage.setItem(`srcpeek:open-files:${repoUrl}`, JSON.stringify(openFiles));
+  }, [openFiles, filesLoaded, repoUrl]);
 
   useEffect(() => {
     setActiveTab(selectedItem?.type === "blob" ? "content" : "metadata");
@@ -338,6 +373,19 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
     staleTime: Infinity,
     gcTime: 10 * 60 * 1000,
   });
+  const contextFiles = ["README.md", "package.json"].map((name) =>
+    repositoryQuery.data?.tree.find((item) => item.type === "blob" && item.path.toLowerCase() === name.toLowerCase()),
+  );
+  const contextQueries = useQueries({ queries: contextFiles.map((item) => ({
+    queryKey: ["ai-context-file", repository?.fullName, item?.sha],
+    queryFn: ({ signal }: { signal: AbortSignal }) => fetchFileContent(repository!.fullName, item!.sha, signal),
+    enabled: Boolean(repository && item), retry: false, staleTime: Infinity,
+  })) });
+  const aiRepositoryContext = repository ? {
+    fullName: repository.fullName, url: repository.url, description: repository.description,
+    readme: contextQueries[0]?.data?.content,
+    packageJson: contextQueries[1]?.data?.content,
+  } : undefined;
 
   // Wait for a short pause in typing before scanning and highlighting the file.
   useEffect(() => {
@@ -433,10 +481,6 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
                srcmap
               </span>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <span className="h-5 w-px bg-border" />
-              <ThemeToggle className="size-8 rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
-            </div>
           </div>
         </SidebarHeader>
 
@@ -511,12 +555,11 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="h-dvh min-h-0 min-w-0 overflow-hidden">
-        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b bg-background px-2 py-2 sm:px-3 lg:h-14 lg:flex-nowrap lg:py-0">
-          <div className="flex min-w-0 flex-1 items-center gap-1 sm:flex-none">
-            <SidebarTrigger className="size-9 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground" />
-            <span className="mx-1 hidden h-5 w-px bg-border sm:block" />
-            <div className="min-w-0 max-w-60 flex-1 sm:w-56" aria-live="polite" aria-busy={repositoryQuery.isFetching}>
+      <SidebarInset className="relative h-dvh min-h-0 min-w-0 overflow-hidden">
+        <header className="z-20 flex shrink-0 flex-wrap items-center gap-2 border-b bg-background/95 px-2 py-2 backdrop-blur sm:px-3 lg:h-14 lg:flex-nowrap lg:gap-3 lg:py-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <SidebarTrigger className="size-9 shrink-0 rounded-lg border bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <div className="hidden min-w-0 max-w-52 sm:block" aria-live="polite" aria-busy={repositoryQuery.isFetching}>
             {repositoryQuery.isFetching ? (
               <div className="flex items-center gap-2 px-2" role="status" aria-label="Loading repository">
                 <Skeleton className="size-7 shrink-0 rounded-full" />
@@ -537,23 +580,15 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
             hasFile={Boolean(selectedFile)} loading={fileQuery.isPending} failed={fileQuery.isError}
             matchCount={matches.length} activeMatch={activeMatch} onNavigate={navigateMatch}
             className="order-last w-full lg:order-none lg:flex-1 lg:self-auto" />
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            <CodeThemeSelector className="hidden w-44 xl:flex" />
-            <span className="mx-1 hidden h-6 w-px bg-border xl:block" />
-            <Button variant="secondary" className="hidden h-9 2xl:inline-flex" disabled><Sparkles />Explain with AI</Button>
-            <Button onClick={() => setDialogOpen(true)} className="hidden h-9 md:inline-flex"><Plus />Open repository</Button>
-            <Button onClick={() => setDialogOpen(true)} variant="outline" size="icon" className="size-9 md:hidden" aria-label="Open repository"><Plus /></Button>
-            <ShareRepository repo={repository?.url ?? repoUrl} file={filePath} search={codeSearch}
-              disabled={!repository || repositoryQuery.isFetching || repositoryQuery.isError} />
-            <OperationsMenu repository={repository} onOpenRepository={() => setDialogOpen(true)} />
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <Button variant="secondary" className="h-9 rounded-lg" onClick={() => setAiOpen(true)}><Bot className="size-4" /><span className="hidden sm:inline">Ask AI</span></Button>
+            <OperationsMenu repository={repository} onOpenRepository={() => setDialogOpen(true)}
+              onFocusSearch={() => document.querySelector<HTMLInputElement>('[aria-label="Search code in selected file (case-sensitive)"]')?.focus()}
+              repoUrl={repoUrl} filePath={filePath} codeSearch={codeSearch} />
           </div>
         </header>
 
-        <main className={
-          activeTab === "content" && repository
-            ? "min-h-0 flex-1 overflow-y-auto"
-            : "min-h-0 flex-1 overflow-y-auto p-4 sm:p-8"
-        }>
+        <main className={cn("min-h-0 flex-1 overflow-y-auto transition-[margin]", aiOpen && "lg:mr-[430px]", activeTab !== "content" || !repository ? "p-4 sm:p-8" : "")}>
           {!repoUrl && (
             <div className="mx-auto flex min-h-full max-w-lg flex-col items-center justify-center text-center">
               <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border bg-muted/40"><FolderGit2 className="size-6 text-muted-foreground" /></div>
@@ -573,6 +608,26 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
 
           {repository && !repositoryQuery.isFetching && (
             <div className="w-full">
+              {activeTab === "content" && openFiles.length > 0 && <div className="flex h-10 min-w-0 items-stretch overflow-x-auto border-b bg-muted/25" role="tablist" aria-label="Open files">
+                {openFiles.map((path) => {
+                  const item = tree.find((entry) => entry.path === path && entry.type === "blob");
+                  if (!item) return null;
+                  const active = path === selectedFile?.path;
+                  return <div key={path} className={`group flex max-w-60 shrink-0 items-center border-r ${active ? "border-t-2 border-t-primary bg-background" : "border-t-2 border-t-transparent"}`}>
+                    <button type="button" role="tab" aria-selected={active} title={path} onClick={() => selectTreeItem(item)} className="max-w-52 truncate px-3 text-left text-xs">{path.split("/").pop()}</button>
+                    {active && <button type="button" title="Add file to AI chat" aria-label="Add active file to AI chat" onClick={() => addAiAttachment({ path, code: fileQuery.data?.content ?? "" })} className="rounded p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-muted"><Bot className="size-3.5" /></button>}
+                    <button type="button" aria-label={`Close ${path}`} onClick={() => {
+                      const next = openFiles.filter((entry) => entry !== path);
+                      setOpenFiles(next);
+                      if (active) {
+                        const replacement = next.map((entry) => tree.find((candidate) => candidate.path === entry && candidate.type === "blob")).find(Boolean);
+                        if (replacement) selectTreeItem(replacement);
+                        else void setUrlState({ file: "", q: "" }, { history: "push" });
+                      }
+                    }} className="mr-1 rounded px-1 text-muted-foreground opacity-60 hover:bg-muted hover:text-foreground">×</button>
+                  </div>;
+                })}
+              </div>}
               {filePath && !selectedItem && (
                 <p role="status" className="break-words border-b bg-muted/40 p-4 text-sm text-muted-foreground">
                   The shared file “{filePath}” is not in this repository’s current tree. Choose a file from the sidebar.
@@ -600,7 +655,8 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
 
                 {selectedFile && fileQuery.data && (
                   <FilePreview file={selectedFile} content={fileQuery.data.content}
-                    searchTerm={debouncedSearch} matches={matches} activeMatch={activeMatch} />
+                    searchTerm={debouncedSearch} matches={matches} activeMatch={activeMatch}
+                    onAddLine={(path, code, line) => addAiAttachment({ path, code, startLine: line })} />
                 )}
               </TabsContent>
 
@@ -636,6 +692,9 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
       </SidebarInset>
 
       <OpenRepositoryDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={openRepository} />
+      <AiSidechat open={aiOpen} onOpenChange={setAiOpen} repository={aiRepositoryContext} snippet={fileQuery.data?.content}
+        attachments={aiAttachments} onRemoveAttachment={(path) => setAiAttachments((items) => items.filter((item) => item.path !== path))}
+        onOpenFile={(path) => { const target = tree.find((item) => item.path === path); if (target) selectTreeItem(target); }} />
       <SelectionToast open={selectionToastOpen} onOpenChange={setSelectionToastOpen} />
     </>
   );
