@@ -342,8 +342,13 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
     setFilesLoaded(false);
     if (!repoUrl) { setOpenFiles([]); setFilesLoaded(true); return; }
     try {
-      const saved = localStorage.getItem(`srcpeek:open-files:${repoUrl}`);
+      const storageKey = `srcmap:open-files:${repoUrl}`;
+      const legacyKey = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+        .find((key) => key?.endsWith(`:open-files:${repoUrl}`));
+      const saved = localStorage.getItem(storageKey) ?? (legacyKey ? localStorage.getItem(legacyKey) : null);
       setOpenFiles(saved ? JSON.parse(saved).filter((path: unknown) => typeof path === "string") : []);
+      if (saved && !localStorage.getItem(storageKey)) localStorage.setItem(storageKey, saved);
+      if (legacyKey && legacyKey !== storageKey) localStorage.removeItem(legacyKey);
     } catch { setOpenFiles([]); }
     setFilesLoaded(true);
   }, [repoUrl]);
@@ -354,7 +359,7 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
   }, [selectedFile?.path, filesLoaded, repoUrl]);
 
   useEffect(() => {
-    if (filesLoaded && repoUrl) localStorage.setItem(`srcpeek:open-files:${repoUrl}`, JSON.stringify(openFiles));
+    if (filesLoaded && repoUrl) localStorage.setItem(`srcmap:open-files:${repoUrl}`, JSON.stringify(openFiles));
   }, [openFiles, filesLoaded, repoUrl]);
 
   useEffect(() => {
@@ -592,8 +597,10 @@ function ExplorerWorkspace({ activeTab, setActiveTab }: ExplorerWorkspaceProps) 
           {!repoUrl && (
             <div className="mx-auto flex min-h-full max-w-lg flex-col items-center justify-center text-center">
               <div className="mb-5 flex size-14 items-center justify-center rounded-2xl border bg-muted/40"><FolderGit2 className="size-6 text-muted-foreground" /></div>
-              <h1 className="text-xl font-semibold">Explore a public repository</h1>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">Paste a GitHub URL and browse its complete file tree without downloading anything.</p>
+              <h1 className="text-xl font-semibold">Explore GitHub repositories without cloning</h1>
+              <p className="mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
+                Srcmap is a VS Code-like workspace online. Paste a public GitHub URL to browse its repository tree, view source code online, and explore code in your browser—no clone or local setup required.
+              </p>
               <Button className="mt-6" onClick={() => setDialogOpen(true)}><Plus />Open repository</Button>
             </div>
           )}

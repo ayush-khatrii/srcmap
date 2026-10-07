@@ -1,0 +1,17 @@
+{
+  "name": "Srcmap — GitHub Repository Explorer",
+  "short_name": "Srcmap",
+  "description": "Explore GitHub repositories online without cloning.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

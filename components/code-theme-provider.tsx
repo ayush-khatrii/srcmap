@@ -23,12 +23,19 @@ export function CodeThemeProvider({ children }: { children: React.ReactNode }) {
     if (!isSupported) return;
 
     setCurrentTheme(theme as CodeTheme);
-    localStorage.setItem("srcpeek-code-theme", theme);
+    localStorage.setItem("srcmap-code-theme", theme);
   }
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("srcpeek-code-theme");
-    if (savedTheme) setCodeTheme(savedTheme);
+    const storageKey = "srcmap-code-theme";
+    const currentTheme = localStorage.getItem(storageKey);
+    const legacyKey = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+      .find((key) => key?.endsWith("-code-theme"));
+    const savedTheme = currentTheme ?? (legacyKey ? localStorage.getItem(legacyKey) : null);
+    if (savedTheme) {
+      setCodeTheme(savedTheme);
+      if (!currentTheme && legacyKey) localStorage.removeItem(legacyKey);
+    }
   }, []);
 
   return (

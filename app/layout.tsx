@@ -23,9 +23,9 @@ const geistMono = Geist_Mono({
 
 const SITE_URL = "https://srcmap.cc";
 const SITE_NAME = "Srcmap";
-const SITE_TITLE = "Srcmap — Explore GitHub Repositories Without the Setup";
+const SITE_TITLE = "Srcmap — Explore GitHub Repositories Online Without Cloning";
 const SITE_DESCRIPTION =
-  "Srcmap opens public GitHub repositories in a VS Code-style workspace in your browser. Browse folders, read syntax-highlighted code, search within files, and share links straight to the file and search you found.";
+  "Explore a GitHub repository without cloning. Srcmap is a VS Code-like online workspace to browse repository files, view source code online, and explore code in your browser.";
 
 export const metadata: Metadata = {
    verification: {
@@ -40,9 +40,15 @@ export const metadata: Metadata = {
   applicationName: SITE_NAME,
   keywords: [
     "GitHub repository browser",
-    "explore GitHub code",
-    "code viewer",
-    "syntax highlighting",
+    "explore GitHub repository without cloning",
+    "explore GitHub repositories online",
+    "VS Code-like workspace online",
+    "VS Code-style repository browser",
+    "view GitHub code online",
+    "view source code online",
+    "explore code online without cloning",
+    "online GitHub code viewer",
+    "browse GitHub repository files in browser",
     "read source code online",
     "GitHub file search",
     "VS Code style browser",
@@ -82,7 +88,7 @@ export const metadata: Metadata = {
     locale: "en_US",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     images: ["/logo.svg"],

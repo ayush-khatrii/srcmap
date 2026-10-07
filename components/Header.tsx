@@ -58,7 +58,7 @@ const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: 
     <header className="sticky top-0 z-40 border-b bg-background/95 text-foreground backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-full items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
 
-        <Link href="/" aria-label="srcpeek home" className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href="/" aria-label="Srcmap home" className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <img src="/logo.png" className="size-5" />
           <span className="font-mono text-lg font-semibold tracking-tight">
             srcmap<span className="font-normal text-muted-foreground">.cc</span>

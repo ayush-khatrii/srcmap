@@ -27,12 +27,12 @@ This demo supports read-only browsing of sample files.
   {
     name: "README.md",
     path: "README.md",
-    content: `# srcpeek
+    content: `# Srcmap
 
 Explore a Repository. Understand Its Code.
 
-srcpeek helps you browse public GitHub repositories without
-downloading them or setting up a development environment.
+Srcmap helps you explore public GitHub repositories online without cloning,
+downloading them, or setting up a development environment.
 
 ## Planned features
 
@@ -126,7 +126,7 @@ function ExplorerWorkspace() {
           <div className="flex justify-between items-center gap-2">
             <span className="flex items-center gap-2 text-sm font-medium">
               <FolderGit2 className="size-4 text-muted-foreground" aria-hidden="true" />
-              srcpeek
+              srcmap
             </span>
             <SidebarThemeToggle />
           </div>
