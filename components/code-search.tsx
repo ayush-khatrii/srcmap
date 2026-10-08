@@ -32,7 +32,7 @@ export function CodeSearch({ value, onChange, onFocus, hasFile, loading, failed,
       <Input
         type="search"
         aria-label="Search code in selected file (case-sensitive)"
-        placeholder="Search code (case-sensitive)…"
+        placeholder="Find in file…"
         title="Find exact text in this file. Uppercase and lowercase letters are different."
         value={value}
         readOnly={!hasFile}
@@ -46,7 +46,7 @@ export function CodeSearch({ value, onChange, onFocus, hasFile, loading, failed,
           }
           if (event.key === "Escape") onChange("");
         }}
-        className="h-9 min-w-0 border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent [&::-webkit-search-cancel-button]:hidden"
+        className="h-7 min-w-0 border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent [&::-webkit-search-cancel-button]:hidden"
       />
       {value && <>
         <span role="status" className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">

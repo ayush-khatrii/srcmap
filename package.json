@@ -9,6 +9,8 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.11",
+    "@clerk/ui": "^1.39.0",
     "@radix-ui/react-use-controllable-state": "^1.2.6",
     "@shikijs/transformers": "^4.4.3",
     "@tanstack/react-query": "^5.102.8",

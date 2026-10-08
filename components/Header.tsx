@@ -1,156 +1,69 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  BookOpen, Bookmark, ChevronDown, CodeXml, CreditCard, FolderSearch,
-  Bot, History, LogIn, LogOut, Menu, MessageSquare, Settings, UserRound,
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Show, useClerk, UserButton } from "@clerk/nextjs";
+import { Bot, Check, Copy, LogIn, Menu, Search, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
-type HeaderUser = {
-  name: string;
-  email: string;
-  avatarUrl?: string;
-  plan: string;
-};
-
-type HeaderProps = {
-  navigation?: ReadonlyArray<{ label: string; href: string }>;
-  user?: HeaderUser | null;
-  onSignOut?: () => void;
-};
-
-const defaultNavigation = [
-  { label: "Explore", href: "/" },
-  { label: "Saved repositories", href: "/saved" },
-  { label: "AI chats", href: "/chats" },
-];
-
-// Sample account for the UI showcase; pass the authenticated user when available.
-const demoUser: HeaderUser = {
-  name: "Alex Morgan",
-  email: "alex@example.com",
-  plan: "Free plan",
-};
-
-const workspaceItems = [
-  { label: "Explore repositories", href: "/", icon: FolderSearch },
-  { label: "Recently viewed", href: "/recent", icon: History },
-  { label: "Saved repositories", href: "/saved", icon: Bookmark },
-  { label: "AI chats", href: "/chats", icon: MessageSquare },
-];
-
-const Header = ({ navigation = defaultNavigation, user = demoUser, onSignOut }: HeaderProps) => {
-  const pathname = usePathname();
-  const [demoSignedOut, setDemoSignedOut] = useState(false);
-  const currentUser = user === demoUser && demoSignedOut ? null : user;
-  const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+export default function Header({ aiOpen, onToggleAi, fileContent, hasFile, canShare, onShare, onSearch }: {
+  aiOpen: boolean;
+  onToggleAi: () => void;
+  fileContent?: string;
+  hasFile: boolean;
+  canShare: boolean;
+  onShare: () => void;
+  onSearch: () => void;
+}) {
+  const { openSignIn } = useClerk();
+  const pendingAction = useRef<(() => void) | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  useEffect(() => { setCopyStatus("idle"); }, [fileContent]);
+  useEffect(() => {
+    if (copyStatus === "idle") return;
+    const timeout = setTimeout(() => setCopyStatus("idle"), 2000);
+    return () => clearTimeout(timeout);
+  }, [copyStatus]);
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 text-foreground backdrop-blur-sm">
-      <div className="mx-auto flex h-16 max-w-full items-center gap-2 px-4 sm:gap-4 sm:px-6 lg:px-8">
-
-        <Link href="/" aria-label="Srcmap home" className="flex shrink-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <img src="/logo.png" className="size-5" />
-          <span className="font-mono text-lg font-semibold tracking-tight">
-            srcmap<span className="font-normal text-muted-foreground">.cc</span>
-          </span>
-        </Link>
-
-        <nav aria-label="Main navigation" className="ml-4 hidden items-center gap-1 lg:flex">
-          {navigation.map(({ label, href }) => (
-            <Button key={href} asChild variant="ghost" className={isActive(href) ? "bg-accent text-accent-foreground" : "text-muted-foreground"}>
-              <Link href={href} aria-current={isActive(href) ? "page" : undefined}>{label}</Link>
-            </Button>
-          ))}
-        </nav>
-
-        <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          <Button asChild className="mr-1 hidden sm:inline-flex">
-            <Link href="/pricing"><Bot aria-hidden="true" />Upgrade</Link>
+    <header className="absolute inset-x-0 top-0 z-20 flex h-14 items-center justify-between gap-3 border-b bg-chrome px-3 sm:px-5">
+      <Link href="/" aria-label="Srcmap home" className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Image src="/logo.svg" alt="" width={30} height={30} priority className="size-7 rounded-md" />
+        <span className="font-mono text-base font-semibold tracking-tight">srcmap</span>
+      </Link>
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <Show when="signed-in"><UserButton appearance={{ elements: { avatarBox: "size-8" } }} /></Show>
+        <Button variant="outline" aria-label="Toggle AI chat" aria-pressed={aiOpen} onClick={onToggleAi} className={cn("h-8 gap-1.5 px-2 text-xs sm:px-3", aiOpen && "bg-accent")}><Bot className="size-4" /><span>Ask AI</span></Button>
+        <Show when="signed-out">
+          <Button onClick={() => openSignIn()} className="hidden md:inline-flex">
+            <LogIn />Sign in
           </Button>
-          <ThemeToggle className="text-muted-foreground" />
-
-          <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden="true" />
-
-          {currentUser ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-10 gap-2 rounded-full p-0.5 sm:pr-2" aria-label={`Open account menu for ${currentUser.name}`}>
-                  <Avatar className="size-8 border border-border">
-                    <AvatarImage src={currentUser.avatarUrl} alt="" />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {currentUser.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <ChevronDown className="hidden text-muted-foreground sm:block" aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 max-w-[calc(100vw-2rem)]">
-                <DropdownMenuLabel className="space-y-1 py-3">
-                  <p className="truncate text-sm font-semibold text-foreground">{currentUser.name}</p>
-                  <p className="truncate font-normal">{currentUser.email}</p>
-                  <span className="mt-2 inline-flex rounded-md border bg-muted px-2 py-0.5 text-[11px] font-medium">{currentUser.plan}</span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem asChild><Link href="/account"><UserRound aria-hidden="true" />My profile</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/account/usage"><Bot aria-hidden="true" />AI usage & limits</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/account/billing"><CreditCard aria-hidden="true" />Billing & subscription</Link></DropdownMenuItem>
-                  <DropdownMenuItem asChild><Link href="/account/settings"><Settings aria-hidden="true" />Settings</Link></DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="text-primary"><Link href="/pricing"><Bot aria-hidden="true" />Upgrade for more AI</Link></DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled={user !== demoUser && !onSignOut} onSelect={() => {
-                  if (onSignOut) onSignOut();
-                  else setDemoSignedOut(true);
-                }}>
-                  <LogOut aria-hidden="true" />Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button asChild variant="ghost"><Link href="/login"><LogIn aria-hidden="true" /><span className="hidden sm:inline">Sign in</span><span className="sr-only sm:hidden">Sign in</span></Link></Button>
-          )}
-        </div>
+        </Show>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Open navigation menu" className="shrink-0 text-muted-foreground">
-              <Menu aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 max-w-[calc(100vw-2rem)]">
-            <DropdownMenuLabel>Workspace</DropdownMenuLabel>
-            <DropdownMenuGroup>
-              {workspaceItems.map(({ label, href, icon: Icon }) => (
-                <DropdownMenuItem key={href} asChild className={isActive(href) ? "bg-accent" : undefined}>
-                  <Link href={href} aria-current={isActive(href) ? "page" : undefined}>
-                    <Icon aria-hidden="true" />{label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Resources</DropdownMenuLabel>
-            <DropdownMenuGroup>
-              <DropdownMenuItem asChild><Link href="/docs"><BookOpen aria-hidden="true" />Documentation</Link></DropdownMenuItem>
-              <DropdownMenuItem asChild><Link href="/pricing"><Bot aria-hidden="true" />Plans & pricing</Link></DropdownMenuItem>
-            </DropdownMenuGroup>
+          <DropdownMenuTrigger asChild><Button id="workspace-actions-trigger" variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label="Open workspace actions" title="Workspace actions"><Menu className="size-4" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end" collisionPadding={12} className="w-56 max-w-[calc(100vw-1.5rem)]" onCloseAutoFocus={(event) => {
+            const action = pendingAction.current;
+            pendingAction.current = null;
+            if (action) { event.preventDefault(); action(); }
+          }}>
+            <DropdownMenuItem className="min-h-10" disabled={fileContent === undefined} onSelect={(event) => {
+              event.preventDefault();
+              navigator.clipboard?.writeText(fileContent ?? "").then(() => setCopyStatus("copied"), () => setCopyStatus("failed"));
+              if (!navigator.clipboard) setCopyStatus("failed");
+            }}>{copyStatus === "copied" ? <Check /> : <Copy />}<span aria-live="polite">{copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Copy failed — try again" : "Copy file"}</span></DropdownMenuItem>
+            <DropdownMenuItem className="min-h-10" disabled={!canShare} onSelect={() => { pendingAction.current = onShare; }}><Share2 />Share this view</DropdownMenuItem>
+            <DropdownMenuItem className="min-h-10" disabled={!hasFile} onSelect={() => { pendingAction.current = onSearch; }}><Search />Search in file</DropdownMenuItem>
+            <Show when="signed-out">
+              <DropdownMenuSeparator className="md:hidden" />
+              <DropdownMenuItem className="min-h-10 md:hidden" onSelect={() => { pendingAction.current = () => openSignIn(); }}><LogIn />Sign in</DropdownMenuItem>
+              {/* <DropdownMenuSeparator /> */}
+            </Show>
           </DropdownMenuContent>
         </DropdownMenu>
-
       </div>
     </header>
   );
-};
-
-export default Header;
+}

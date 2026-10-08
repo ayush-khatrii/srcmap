@@ -268,9 +268,9 @@ export const TreeNodeTrigger = ({
   return (
     <motion.div
       className={cn(
-        "group relative mx-1 flex cursor-pointer items-center rounded-md px-3 py-2 transition-all duration-200",
+        "group relative mx-1 flex min-h-8 cursor-pointer items-center rounded-md px-2 py-1.5 text-xs transition-colors duration-150",
         "hover:bg-accent/50 outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isSelected && "bg-accent/80",
+        isSelected && "bg-sidebar-accent text-sidebar-accent-foreground",
         className
       )}
       role="button"

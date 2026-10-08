@@ -10,6 +10,12 @@
 !.yarn/releases
 !.yarn/versions
 
+# extras
+.clerk
+.codex
+.agents
+.gitignore
+
 # testing
 /coverage
 
@@ -31,7 +37,10 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.local
+.env.*.local
+
 
 # vercel
 .vercel
@@ -39,3 +48,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.clerk/

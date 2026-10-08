@@ -76,7 +76,7 @@ export default function RepositoryTree({
       selectedIds={selectedPath ? [selectedPath] : []}
       onSelectionChange={handleSelection}
     >
-      <div className="flex h-8 min-w-0 items-center gap-2 px-2 pb-1 text-xs font-medium text-muted-foreground">
+      <div className="sticky top-0 z-10 flex h-9 min-w-0 items-center gap-2 border-b bg-sidebar px-2 text-xs font-medium text-sidebar-foreground">
         <FolderGit2 className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate" title={repositoryName}>
           {repositoryName}
